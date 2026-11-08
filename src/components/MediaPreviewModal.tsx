@@ -353,6 +353,7 @@ export const MediaPreviewModal: React.FC<MediaPreviewModalProps> = ({
   const [loadError, setLoadError] = useState<string | null>(null);
   const [mdMode, setMdMode] = useState<'rendered' | 'source'>('rendered');
   const [copied, setCopied] = useState(false);
+  const [nameExpanded, setNameExpanded] = useState(false);
   const audioRef = useRef<HTMLAudioElement | null>(null);
 
   const { rendered, isClosing } = useModalTransition(!!item, 160);
@@ -363,6 +364,7 @@ export const MediaPreviewModal: React.FC<MediaPreviewModalProps> = ({
     if (item) {
       setCachedItem(item);
       setCachedUrl(fileUrl);
+      setNameExpanded(false);
     }
   }, [item, fileUrl]);
 
@@ -478,7 +480,14 @@ export const MediaPreviewModal: React.FC<MediaPreviewModalProps> = ({
           <div className="flex items-center gap-2 min-w-0 flex-1">
             <FileIconBadge item={activeItem} size="sm" />
             <div className="min-w-0">
-              <h3 className="font-semibold text-sm sm:text-base text-slate-900 dark:text-white truncate">
+              <h3
+                dir="auto"
+                title={nameExpanded ? undefined : activeItem.name}
+                onClick={() => setNameExpanded((v) => !v)}
+                className={`font-semibold text-sm sm:text-base text-slate-900 dark:text-white cursor-pointer select-none transition-colors hover:text-indigo-600 dark:hover:text-indigo-400 ${
+                  nameExpanded ? 'break-all whitespace-normal' : 'truncate'
+                }`}
+              >
                 {activeItem.name}
               </h3>
               <p className="text-xs text-slate-500 dark:text-slate-400 whitespace-nowrap truncate">
