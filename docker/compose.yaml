@@ -46,7 +46,6 @@ services:
     environment:
       DUFS_SERVE_PATH: /data
       DUFS_ANON_PREFIX: "${LUME_ANON_PREFIX:-/share}"
-      ENABLE_DU_DATA_BYTES: "${ENABLE_DU_DATA_BYTES:-0}"
     expose:
       - "8090"
 

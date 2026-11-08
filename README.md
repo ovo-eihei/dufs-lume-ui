@@ -78,6 +78,9 @@ pnpm run build
 
 `docker/` 目录提供了开箱即用的三容器同源编排方案（`dufs` + `lume-info-api` + `caddy`）：
 
+> 需要 **Docker Engine 20.10+ 与 Compose v2.24+**（`env_file.required` 字段自 v2.24 起支持）；
+> 旧版会直接报 `unknown field "required"`。先 `docker compose version` 确认。
+
 ```bash
 cd docker
 cp .env.example .env
@@ -86,7 +89,9 @@ docker compose up -d --build
 ```
 
 - **品牌定制**：在 `.env` 中设置 `LUME_TITLE`、`LUME_SUBTITLE`、`LUME_ICON`、`LUME_LOGIN_URL`，重启容器即可生效，无需重新编译前端。
-- **Dufs 原生参数透传**：Dufs 0.47+ 支持通过 `DUFS_*` 环境变量配置所有命令行参数（如 `DUFS_ALLOW_UPLOAD=true`、`DUFS_ALLOW_DELETE=true`、`DUFS_ALLOW_SEARCH=true`、`DUFS_ALLOW_ARCHIVE=true`）。
+- **Dufs 原生参数透传**：Dufs 0.47+ 支持通过 `DUFS_*` 环境变量配置所有命令行参数（如 `DUFS_ALLOW_UPLOAD=true`、`DUFS_ALLOW_DELETE=true`、`DUFS_ALLOW_SEARCH=true`、`DUFS_ALLOW_ARCHIVE=true`）。⚠ 这类变量“设了就有值”，**不要用空值**：留一行 `DUFS_AUTH=` 会被 dufs 当成一条鉴权规则，匿名请求全站 401。要么注释掉，要么给真值。
+- **默认档不带鉴权**：bundle 里没有 tinyauth，`LUME_BIND` 默认 `127.0.0.1`（只绑回环，等你前面的 TLS 反代）。⚠ **不要**在没做任何鉴权的情况下把 `LUME_BIND` 改成 `0.0.0.0` 再叠加 `DUFS_ALLOW_UPLOAD=true` —— 那等于任何人都能往你的网盘上传文件。要直接对外请先上 HTTPS（Caddy 自带证书只需去掉 `auto_https off` 并填域名）并至少配一条 `DUFS_AUTH`。
+- **容器内以 root 跑 dufs**：开启写权限后，上传产生的文件属主是 root。要避开了就用 compose 的 `user:` 映射你自己的 UID/GID，并保证 `DATA_DIR` 对该 UID 可写。
 
 ## 📦 宿主机原生部署（Dufs + Caddy + TinyAuth）
 
