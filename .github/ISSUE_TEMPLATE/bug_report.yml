@@ -1,0 +1,67 @@
+name: 缺陷报告
+description: 报告一个可以复现的问题
+title: "[Bug] "
+labels: ["bug"]
+body:
+  - type: markdown
+    attributes:
+      value: |
+        感谢反馈。这个项目主要由 AI 编写、以人工验收为主，**没有自动化测试**，所以你的复现步骤对它比对一般项目更有价值。
+        ⚠ 安全问题请勿在这里公开提，请走 Security 页面的私密报告入口（见仓库 `docs/ai-development-notes.md` 第 6 节）。
+  - type: textarea
+    id: what-happened
+    attributes:
+      label: 发生了什么
+      description: 现象是什么，你期望看到什么
+      placeholder: 打开含中文与空格的目录后，缩略图全部不显示；期望按设置显示服务端缩放图。
+    validations:
+      required: true
+  - type: textarea
+    id: reproduce
+    attributes:
+      label: 复现步骤
+      description: 从哪个页面开始、点了什么，越具体越好
+      placeholder: |
+        1. 进入 /share/images/
+        2. 切换到网格视图
+        3. 打开偏好设置，把缩略图切到「开启」
+    validations:
+      required: true
+  - type: dropdown
+    id: deploy
+    attributes:
+      label: 部署方式
+      description: 你是怎么跑起来的
+      options:
+        - Docker Compose（docker/ 目录）
+        - 宿主机 dufs --assets + Caddy
+        - 宿主机 dufs --assets（无反代）
+        - 本地 pnpm run dev（内置演示模式）
+        - 其他 / 不确定
+    validations:
+      required: true
+  - type: input
+    id: versions
+    attributes:
+      label: 版本信息
+      description: 浏览器与版本、Dufs 版本、本项目 tag（可贴 `dufs --version` 与 `git describe --tags`）
+      placeholder: "Safari iOS 18.1 / Dufs 0.47.0 / v0.3.0"
+    validations:
+      required: true
+  - type: textarea
+    id: network
+    attributes:
+      label: 相关请求与服务端输出
+      description: 浏览器开发者工具里失败请求的 URL 与状态码；涉及 `/__lume__/*` 时请一并给出 `/__lume__/info` 的返回内容（**请先抹掉域名、token 与任何凭据**）
+      placeholder: |
+        GET /__lume__/thumb?path=%2Fshare%2Fa.png&w=256 → 503
+        GET /__lume__/info → {"generated_at":"…","path":"/data","free_bytes":…,"thumbs":{"enabled":false}}
+  - type: checkboxes
+    id: checks
+    attributes:
+      label: 提交前确认
+      options:
+        - label: 我确认这不是客户端拦截规则造成的（例如 AdGuard / 浏览器插件把请求挡掉了）
+          required: false
+        - label: 我已经在上面的内容里抹掉了域名、凭据等敏感信息
+          required: true

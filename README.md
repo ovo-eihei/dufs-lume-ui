@@ -1,5 +1,9 @@
 # ✨ dufs-lume-ui
 
+[简体中文](./README.md) · [English](./README.en.md)
+
+> ⚠️ **这是一个 AI 开发的项目。** 代码与文档主要由 AI 助手编写，人类负责提需求、做决策与验收；**没有经过严格的安全审计，也没有系统性的代码审查**。请把它当作一份可运行、可参考的实现，而不是经过验证的成品。详细说明见 [AI 开发说明与安全边界](./docs/ai-development-notes.md)。
+
 **dufs-lume-ui** 是一个专为轻量级静态文件服务器 [Dufs (`sigoden/dufs`)](https://github.com/sigoden/dufs) 设计的现代化、响应式独立前端主题。它基于 Dufs 原生提供的 `--assets` 静态资源覆盖机制运行，无需修改或重新编译 Dufs 源码即可替换默认界面，并支持通过轻量级扩展接口（`/__lume__/info` 与 `/__lume__/thumb`）实现实时存储空间监控、服务端缩略图生成以及 [Caddy](https://caddyserver.com/docs/caddyfile/directives/forward_auth) + [TinyAuth](https://tinyauth.app/docs/community/caddy/) 反向代理鉴权集成。
 
 ## 🌟 核心特性
@@ -48,7 +52,9 @@ dufs-lume-ui/
 ├── scripts/
 │   └── lume-info-api.sh              # POSIX sh 扩展接口脚本（服务 /__lume__/info 与 /__lume__/thumb）
 ├── docs/
-│   └── deployment-and-lume-api.md    # 进阶部署、Unix Socket 配置、安全约束与性能分析文档
+│   ├── deployment-and-lume-api.md    # 进阶部署、Unix Socket 配置、安全约束与性能分析
+│   ├── ai-development-notes.md       # AI 开发说明与安全边界（中文）
+│   └── ai-development-notes.en.md    # 同上，英文版
 └── src/
     ├── App.tsx                       # 主应用状态编排：合并探测、键盘巡航、粘贴上传与迷你播放器
     ├── i18n.ts                       # i18next 国际化初始化
