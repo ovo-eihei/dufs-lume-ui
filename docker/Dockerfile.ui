@@ -1,0 +1,41 @@
+# UI + dufs 合成一个镜像：构建阶段产 dist/，运行阶段 alpine + 上游 dufs 二进制。
+#
+#   docker build -f docker/Dockerfile.ui -t lume-server:local .
+#
+# 为什么不直接用 sigoden/dufs 官方镜像：它是 FROM scratch（实测容器里没有 /bin/sh，
+# docker exec 进不去），而品牌要在 dufs 读 index.html 之前写进去 ⇒ 需要一个能跑
+# entrypoint 的基座。alpine 只多 7 MB，二进制仍是上游那份，不自己编译。
+# DUFS_VERSION 带 v 前缀：Docker Hub 上的 tag 是 v0.47.0（实测无 0.47.0 这个 tag）。
+ARG DUFS_VERSION=v0.47.0
+
+FROM node:22-alpine AS build
+WORKDIR /src
+COPY package.json pnpm-lock.yaml ./
+# --ignore-scripts：pnpm 10+ 对未批准的 postinstall 直接退 1（esbuild@0.21.5）。
+# 跳过去不影响产物：平台二进制由可选依赖 @esbuild/linux-x64 自带，
+# 实测容器构建与宿主构建输出逐字节相同（lume-app.DspjbmXe.js sha256 一致）。
+RUN corepack enable && pnpm install --frozen-lockfile --ignore-scripts
+COPY . .
+RUN pnpm build
+
+FROM sigoden/dufs:${DUFS_VERSION} AS dufs
+
+FROM alpine:3.22
+COPY --from=dufs /bin/dufs /usr/local/bin/dufs
+COPY --from=build /src/dist /assets
+COPY docker/entrypoint-ui.sh /usr/local/bin/entrypoint-ui.sh
+RUN chmod 0755 /usr/local/bin/entrypoint-ui.sh
+
+# dufs 0.47 起每个选项都可用 DUFS_ 前缀环境变量给（实测零命令行参数也能正常服务）。
+# 注意：这类变量是"设了就有值"，**不要设空值** —— 实测 `DUFS_AUTH=`（空但存在）会被
+# dufs 当成一条鉴权规则，匿名请求全部 401。所以 .env.example 里相关项只能注释掉。
+ENV LUME_TITLE="" LUME_SUBTITLE="" LUME_ICON="" LUME_LOGIN_URL="" \
+    DUFS_SERVE_PATH=/data DUFS_BIND=0.0.0.0 DUFS_PORT=5000 DUFS_ASSETS=/assets
+EXPOSE 5000
+ENTRYPOINT ["/usr/local/bin/entrypoint-ui.sh"]
+# busybox 自带 wget ⇒ 健康检查不额外装 curl
+HEALTHCHECK --interval=30s --timeout=3s --start-period=5s --retries=3 \
+  CMD wget -q -O /dev/null http://127.0.0.1:5000/__dufs__/health || exit 1
+# 不需要 CMD 参数：dufs 自己从上面的 ENV 取服务路径 / 监听 / 资产目录。
+# （上游 dufs 0.47.0 没有 --host，绑地址是 -b/--bind —— 实测 --help）
+CMD []
