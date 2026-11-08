@@ -218,6 +218,14 @@ Caddy 没有"未登录"这个匹配条件（登录态只有 tinyauth 知道）�
 3. **产物文件名必须带 Content Hash**：`/__dufs_v<版本>__/` 下的文件被 Dufs 标记为 `cache-control: public, max-age=31536000, immutable`，而 `index.html` 本身是 `no-cache`。本仓库构建配置固定输出 `lume-app.[hash].js` / `lume-[name].[hash][extname]`，发布时请使用 `rsync -a --delete dist/ /path/to/assets/` 整目录替换，避免旧 hash 文件堆积。
 4. **用 `curl` 验证换皮必须带浏览器请求头**：Dufs 按 `Accept` 请求头分流——`Accept: */*`（`curl` 默认值）返回内置极简页，只有携带 `Accept: text/html,...` 与 `Mozilla/5.0` User-Agent 时才会返回自定义主题的 `index.html`。
 5. **没有图像工具链**（`convert` / `magick` / `ffmpeg` / `vipsthumbnail` / `cwebp` 全部不存在）⇒ `/__lume__/thumb` 会返回 **503**、`info` 的 `thumbs` 会是 `false`。装 `libvips-tools` 后**无需改脚本或配置**，能力位自动亮起。
+6. **品牌是运行时注入的，不是编译进去的**：`index.html` 里有一行 `window.__LUME_BRAND__ = '__LUME_BRAND_JSON__';`。docker 路径由 `docker/entrypoint-ui.sh` 填；**非 docker（rsync `dist/`）不会跑那个脚本**，占位符原样留着 ⇒ 前端 `resolveBrandConfig()` 当它未配置，用 locale 缺省值。要给自己实例带品牌，在 `rsync` 之后、`systemctl restart dufs` 之前把那个单引号字面量换成 JSON（**单引号**里才能放含双引号的 JSON；改完必须重启，理由同第 2 条）：
+
+   ```bash
+   BRAND='{"title":"我的盘","subtitle":"文件分享","icon":"","loginUrl":""}'
+   awk -v b="$BRAND" '{gsub(/__LUME_BRAND_JSON__/, b); print}' /path/to/assets/index.html > /tmp/i && cat /tmp/i > /path/to/assets/index.html
+   ```
+
+   ⚠ 这里用 `gsub` 只能当品牌值不含 `&` 与反斜杠（`&` 在 gsub 替换串里 = 整段匹配）。entrypoint 脚本自己走的是 `index()`+`substr()` 拼接，不吃转义，已经用 `</script>` / `"` / `'` / `\` / `&` / `%` 的恶意值逐字节验过。
 
 ### 自检命令（脚本可脱离 socket 单测，管道进、管道出）
 

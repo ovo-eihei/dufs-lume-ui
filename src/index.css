@@ -4,23 +4,119 @@
 
 @layer base {
   body {
-    @apply bg-slate-50 text-slate-900 dark:bg-slate-950 dark:text-slate-100 transition-colors duration-200;
+    @apply antialiased font-sans;
   }
 }
 
-/* 全局滚动条样式：针对 WebKit 浏览器与 Firefox 标准属性做深浅双色适配 */
-* {
-  scrollbar-width: thin;
-  scrollbar-color: rgba(148, 163, 184, 0.45) transparent;
+/* Keyframe Animations (Explicitly defined for both Vite and Canvas runtime) */
+@keyframes lumeFadeIn {
+  0% {
+    opacity: 0;
+  }
+  100% {
+    opacity: 1;
+  }
 }
 
-html.dark * {
-  scrollbar-color: rgba(100, 116, 139, 0.55) transparent;
+@keyframes lumeFadeOut {
+  0% {
+    opacity: 1;
+  }
+  100% {
+    opacity: 0;
+  }
 }
 
+@keyframes lumeModalIn {
+  0% {
+    opacity: 0;
+    transform: scale(0.94) translateY(10px);
+  }
+  100% {
+    opacity: 1;
+    transform: scale(1) translateY(0);
+  }
+}
+
+@keyframes lumeModalOut {
+  0% {
+    opacity: 1;
+    transform: scale(1) translateY(0);
+  }
+  100% {
+    opacity: 0;
+    transform: scale(0.95) translateY(8px);
+  }
+}
+
+@keyframes lumeDropdownIn {
+  0% {
+    opacity: 0;
+    transform: scale(0.92) translateY(-6px);
+  }
+  100% {
+    opacity: 1;
+    transform: scale(1) translateY(0);
+  }
+}
+
+@keyframes lumeSlideUp {
+  0% {
+    opacity: 0;
+    transform: translateY(18px) scale(0.97);
+  }
+  100% {
+    opacity: 1;
+    transform: translateY(0) scale(1);
+  }
+}
+
+@keyframes lumeCheckPop {
+  0% {
+    transform: scale(0.6);
+    opacity: 0;
+  }
+  70% {
+    transform: scale(1.15);
+  }
+  100% {
+    transform: scale(1);
+    opacity: 1;
+  }
+}
+
+.animate-fadeIn {
+  animation: lumeFadeIn 0.18s cubic-bezier(0.16, 1, 0.3, 1) forwards;
+}
+
+.animate-fadeOut {
+  animation: lumeFadeOut 0.16s cubic-bezier(0.16, 1, 0.3, 1) forwards;
+}
+
+.animate-modalIn {
+  animation: lumeModalIn 0.22s cubic-bezier(0.16, 1, 0.3, 1) forwards;
+}
+
+.animate-modalOut {
+  animation: lumeModalOut 0.16s cubic-bezier(0.16, 1, 0.3, 1) forwards;
+}
+
+.animate-dropdownIn {
+  animation: lumeDropdownIn 0.18s cubic-bezier(0.16, 1, 0.3, 1) forwards;
+}
+
+.animate-slideUp {
+  animation: lumeSlideUp 0.26s cubic-bezier(0.16, 1, 0.3, 1) forwards;
+}
+
+.animate-checkPop {
+  animation: lumeCheckPop 0.2s cubic-bezier(0.16, 1, 0.3, 1) forwards;
+}
+
+/* Custom Scrollbar Styles */
 ::-webkit-scrollbar {
-  width: 7px;
-  height: 7px;
+  width: 6px;
+  height: 6px;
 }
 
 ::-webkit-scrollbar-track {
@@ -30,8 +126,7 @@ html.dark * {
 ::-webkit-scrollbar-thumb {
   background-color: rgba(148, 163, 184, 0.45);
   border-radius: 9999px;
-  border: 1px solid transparent;
-  background-clip: padding-box;
+  transition: background-color 0.2s;
 }
 
 ::-webkit-scrollbar-thumb:hover {
@@ -46,13 +141,10 @@ html.dark ::-webkit-scrollbar-thumb:hover {
   background-color: rgba(148, 163, 184, 0.75);
 }
 
-::-webkit-scrollbar-corner {
-  background: transparent;
-}
-
 .no-scrollbar::-webkit-scrollbar {
   display: none;
 }
+
 .no-scrollbar {
   -ms-overflow-style: none;
   scrollbar-width: none;

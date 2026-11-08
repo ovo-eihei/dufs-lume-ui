@@ -1,6 +1,5 @@
 /**
- * 演示模式的占位图（本地 dev / 无 dufs 注入时没有真实图片文件）。
- * 预览弹窗与网格缩略图共用，两边看到的"图"才是同一张。
+ * Generates an SVG data URI for image previews and thumbnails in Demo Mode.
  */
 export function createDemoSvgDataUri(title: string): string {
   const svg = `<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 960 540" width="960" height="540">
@@ -27,4 +26,58 @@ export function createDemoSvgDataUri(title: string): string {
     <text x="480" y="298" text-anchor="middle" fill="#94a3b8" font-family="Inter, sans-serif" font-size="14">Dufs Lume UI · Rich Media Preview</text>
   </svg>`;
   return `data:image/svg+xml;utf8,${encodeURIComponent(svg)}`;
+}
+
+/**
+ * Generates a synthesized ambient WAV audio data URI for Demo Mode audio previews and Mini Player.
+ */
+export function createDemoWavDataUri(seedName = ''): string {
+  const sampleRate = 22050;
+  const durationSeconds = 4;
+  const numSamples = sampleRate * durationSeconds;
+  const buffer = new ArrayBuffer(44 + numSamples * 2);
+  const view = new DataView(buffer);
+
+  const writeString = (offset: number, str: string) => {
+    for (let i = 0; i < str.length; i++) {
+      view.setUint8(offset + i, str.charCodeAt(i));
+    }
+  };
+
+  writeString(0, 'RIFF');
+  view.setUint32(4, 36 + numSamples * 2, true);
+  writeString(8, 'WAVE');
+  writeString(12, 'fmt ');
+  view.setUint32(16, 16, true);
+  view.setUint16(20, 1, true);
+  view.setUint16(22, 1, true);
+  view.setUint32(24, sampleRate, true);
+  view.setUint32(28, sampleRate * 2, true);
+  view.setUint16(32, 2, true);
+  view.setUint16(34, 16, true);
+  writeString(36, 'data');
+  view.setUint32(40, numSamples * 2, true);
+
+  const isAlt = seedName.toLowerCase().includes('lofi') || seedName.toLowerCase().includes('chime');
+  const f1 = isAlt ? 392.0 : 440.0;
+  const f2 = isAlt ? 493.88 : 554.37;
+  const f3 = isAlt ? 587.33 : 659.25;
+
+  for (let i = 0; i < numSamples; i++) {
+    const t = i / sampleRate;
+    const envelope = Math.exp(-t * 0.75) * Math.min(1, t * 15);
+    const wave =
+      Math.sin(2 * Math.PI * f1 * t) * 0.5 +
+      Math.sin(2 * Math.PI * f2 * t) * 0.3 +
+      Math.sin(2 * Math.PI * f3 * t) * 0.2;
+    const sample = Math.max(-1, Math.min(1, wave * envelope * 0.5));
+    view.setInt16(44 + i * 2, sample * 32767, true);
+  }
+
+  const bytes = new Uint8Array(buffer);
+  let binary = '';
+  for (let i = 0; i < bytes.byteLength; i++) {
+    binary += String.fromCharCode(bytes[i]);
+  }
+  return `data:audio/wav;base64,${btoa(binary)}`;
 }

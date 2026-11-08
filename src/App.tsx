@@ -19,12 +19,13 @@ import {
 import {
   buildAbsoluteUrl,
   formatBytes,
+  getPreviewCategory,
   isDirectory,
   isSameOrUnder,
   joinUrlPath,
   normalizeDirHref,
-  sanitizeRootPath,
 } from './utils/format';
+import { createDemoWavDataUri } from './utils/demoAssets';
 import {
   createDirectoryMkcol,
   decodeDufsIndexData,
@@ -37,6 +38,7 @@ import {
   fetchServerInfo,
   hasLoginQueryParam,
   probeAuthAndInfo,
+  resolveBrandConfig,
   stripLoginQueryParam,
   thumbsCapabilityEnabled,
   UploadCancelledError,
@@ -56,28 +58,24 @@ import {
 } from './i18n';
 import { Navbar } from './components/Navbar';
 import { Breadcrumbs } from './components/Breadcrumbs';
-import { ServerInfoPanel } from './components/ServerInfoPanel';
+import { LowSpaceBanner } from './components/ServerInfoPanel';
 import { FileExplorer } from './components/FileExplorer';
 import { MediaPreviewModal } from './components/MediaPreviewModal';
 import { AuthPromptModal } from './components/AuthPromptModal';
 import {
   DeleteConfirmModal,
   DragDropOverlay,
+  MiniAudioPlayer,
   NewFolderModal,
+  PasteUploadModal,
   SandboxDisableConfirmModal,
   UploadQueuePanel,
 } from './components/ModalsAndPanels';
 
 const VIEW_MODE_KEY = 'dufs_lume_view_mode';
 const THEME_KEY = 'dufs_lume_theme';
-/**
- * HTML 预览沙箱开关：`'1'`（缺省）= 沙箱内渲染；`'0'` = 用户在二次确认后主动关闭。
- * 只存浏览器 ⇒ 它是「知情同意」不是访问控制：换设备或清站点数据会自动回到安全的开。
- */
 const HTML_SANDBOX_KEY = 'dufs_lume_html_sandbox';
-/** 缩略图偏好：`auto`（缺省，用户没设置过）/ `on` / `off` */
 const THUMB_PREF_KEY = 'dufs_lume_thumbs';
-/** 未登录访客的公开只读根目录 */
 const ANON_ROOT_HREF = '/share/';
 
 function safeGetStorage(key: string, fallback: string): string {
@@ -92,7 +90,7 @@ function safeSetStorage(key: string, value: string): void {
   try {
     localStorage.setItem(key, value);
   } catch {
-    // ignore storage errors in restricted environments
+    // Ignore storage errors in restricted environments
   }
 }
 
@@ -103,8 +101,9 @@ function getSystemDarkPreference(): boolean {
 
 export default function App() {
   const { t } = useTranslation();
+  const brand = useMemo(() => resolveBrandConfig(), []);
 
-  // 1. 解析 Dufs 注入的 __INDEX_DATA__，若不存在则自动进入可交互演示模式 (Demo Mode)
+  // 1. Decode Dufs __INDEX_DATA__ or fall back to interactive Demo Mode
   const initialInjected = useMemo(
     () => decodeDufsIndexData(window.__DUFS_RAW_INDEX_DATA__),
     []
@@ -132,7 +131,23 @@ export default function App() {
     };
   });
 
-  // 2. 视图切换状态 (List / Grid) 并持久化至 localStorage
+  // Sync document title and favicon
+  useEffect(() => {
+    const customTitle = brand.title?.trim();
+    const customSubtitle = brand.subtitle?.trim();
+    if (customTitle) {
+      document.title = customSubtitle ? `${customTitle} · ${customSubtitle}` : customTitle;
+    } else {
+      document.title = t('app.title');
+    }
+    const customIcon = brand.icon?.trim();
+    if (customIcon) {
+      const link = document.querySelector<HTMLLinkElement>('link[rel="icon"]');
+      if (link) link.href = customIcon;
+    }
+  }, [brand, t]);
+
+  // 2. View mode state ('list' | 'grid')
   const [viewMode, setViewMode] = useState<ViewMode>(() => {
     const saved = safeGetStorage(VIEW_MODE_KEY, 'list');
     return saved === 'grid' ? 'grid' : 'list';
@@ -143,7 +158,7 @@ export default function App() {
     safeSetStorage(VIEW_MODE_KEY, mode);
   };
 
-  // 3. 外观主题偏好 ('system' | 'light' | 'dark')
+  // 3. Theme preference ('system' | 'light' | 'dark')
   const [themePreference, setThemePreference] = useState<ThemePreference>(() => {
     const saved = safeGetStorage(THEME_KEY, 'system');
     if (saved === 'light' || saved === 'dark' || saved === 'system') {
@@ -183,7 +198,7 @@ export default function App() {
     safeSetStorage(THEME_KEY, pref);
   };
 
-  // 4. 语言偏好 ('system' | 'zh' | 'en')
+  // 4. Language preference ('system' | 'zh' | 'en')
   const [languagePreference, setLanguagePreference] = useState<LanguagePreference>(() =>
     getSavedLanguagePreference()
   );
@@ -193,26 +208,40 @@ export default function App() {
     setAppLanguagePreference(pref);
   };
 
-  // 5. 搜索、排序状态
+  // 5. Search & sort state
   const [searchQuery, setSearchQuery] = useState('');
   const [sortField, setSortField] = useState<SortField>('name');
   const [sortOrder, setSortOrder] = useState<SortOrder>('asc');
   const searchInputRef = useRef<HTMLInputElement>(null);
   const fileInputRef = useRef<HTMLInputElement>(null);
 
-  // 6. 模态框、上传队列、Toast、Caddy + TinyAuth 鉴权状态
+  // 6. Modals, upload queue, toast, and auth interception state
   const [previewItem, setPreviewItem] = useState<DufsPathItem | null>(null);
   const [mkdirOpen, setMkdirOpen] = useState(false);
   const [deleteTarget, setDeleteTarget] = useState<DufsPathItem | null>(null);
   const [isDraggingOver, setIsDraggingOver] = useState(false);
   const dragCounter = useRef(0);
 
+  // Creative Feature 1: Paste Upload Modal State
+  const [pasteModalOpen, setPasteModalOpen] = useState(false);
+  const [pastedFile, setPastedFile] = useState<File | null>(null);
+  const [pasteSnippet, setPasteSnippet] = useState<string | undefined>();
+  const [pastePreviewUrl, setPastePreviewUrl] = useState<string | undefined>();
+
+  // Creative Feature 5: Background Mini Audio Player State
+  const [activeAudioItem, setActiveAudioItem] = useState<DufsPathItem | null>(null);
+  const [activeAudioUrl, setActiveAudioUrl] = useState<string>('');
+  const [isAudioPlaying, setIsAudioPlaying] = useState(false);
+  const [audioCurrentTime, setAudioCurrentTime] = useState(0);
+  const [audioDuration, setAudioDuration] = useState(0);
+  const globalAudioRef = useRef<HTMLAudioElement | null>(null);
+
   const [uploadTasks, setUploadTasks] = useState<UploadTask[]>([]);
   const [authError, setAuthError] = useState<AuthInterceptError | null>(null);
   const [simulateAuthIntercept, setSimulateAuthIntercept] = useState<boolean>(true);
   const [toastMessage, setToastMessage] = useState<string | null>(null);
 
-  // 7. 登录态 + 服务端概况（磁盘水位与能力位，通过 `/__lume__/info` 极简 sh 扩展 API 一次请求同时获取）
+  // 7. Session auth state & Server Info (Way A: Silent updates on mutation)
   const [authState, setAuthState] = useState<AuthState>(isDemoMode ? 'authenticated' : 'checking');
   const anonRootNormalized = ANON_ROOT_HREF;
 
@@ -221,9 +250,9 @@ export default function App() {
       ? {
           generated_at: new Date().toISOString(),
           path: '/var/lib/dufs',
-          free_bytes: 68719476736, // 64 GB
-          data_bytes: 4294967296, // 4 GB
-          thumbs: { enabled: true, widths: [256] },
+          free_bytes: 68719476736, // 64 GiB
+          data_bytes: 4294967296, // 4 GiB
+          thumbs: { enabled: true, widths: [128, 256, 512] },
         }
       : null
   );
@@ -238,11 +267,6 @@ export default function App() {
     fetchServerInfo(joinUrlPath(indexData.uri_prefix, '/')).then(setServerInfo);
   }, [isDemoMode, indexData.uri_prefix]);
 
-  /**
-   * 启动时发送单次合并探测 `GET /__lume__/info`：
-   * - 未登录：Caddy `@gated` 返回 302/401 ⇒ `authState = 'anonymous'`，`serverInfo = null`
-   * - 已登录：返回 200 JSON ⇒ `authState = 'authenticated'`，并直接填入磁盘水位与服务端能力位
-   */
   useEffect(() => {
     if (isDemoMode) return;
     let cancelled = false;
@@ -260,7 +284,7 @@ export default function App() {
     };
   }, [isDemoMode, indexData.uri_prefix]);
 
-  /* ======================= 8. 沙箱与缩略图偏好 ======================= */
+  /* ======================= 8. HTML Sandbox & Thumbnail Preferences ======================= */
   const [htmlSandbox, setHtmlSandbox] = useState<boolean>(
     () => safeGetStorage(HTML_SANDBOX_KEY, '1') !== '0'
   );
@@ -271,14 +295,8 @@ export default function App() {
     safeSetStorage(HTML_SANDBOX_KEY, enabled ? '1' : '0');
   }, []);
 
-  /** 唯一的「关闭沙箱」入口：设置面板的开关与预览提示条上的按钮都走这里（同一个确认弹窗） */
   const requestDisableSandbox = useCallback(() => setSandboxConfirmOpen(true), []);
 
-  /**
-   * 缩略图：`auto` = 用户从没设置过 ⇒ 完全跟随服务端能力（服务器注册了才默认开）；
-   * `on` = 用户明确要开 ⇒ 服务端支持就走服务端，不支持就退回前端（原图）预览；
-   * `off` = 用户明确关。服务端能力变化**不会改写用户设置**。
-   */
   const [thumbPreference, setThumbPreference] = useState<ThumbPreference>(() => {
     const saved = safeGetStorage(THUMB_PREF_KEY, 'auto');
     return saved === 'on' || saved === 'off' ? saved : 'auto';
@@ -298,7 +316,6 @@ export default function App() {
     safeSetStorage(THUMB_PREF_KEY, pref);
   }, []);
 
-  // 登录入口参数 `?login=1`（F3a）只是给 Caddy 看的，app 一起来就把它从地址栏洗掉
   useEffect(() => {
     if (hasLoginQueryParam()) stripLoginQueryParam();
   }, []);
@@ -325,23 +342,6 @@ export default function App() {
     }, 2800);
   }, []);
 
-  // 快捷键 `/` 聚焦搜索框
-  useEffect(() => {
-    const onKeyDown = (e: KeyboardEvent) => {
-      if (
-        e.key === '/' &&
-        document.activeElement?.tagName !== 'INPUT' &&
-        document.activeElement?.tagName !== 'TEXTAREA'
-      ) {
-        e.preventDefault();
-        searchInputRef.current?.focus();
-      }
-    };
-    window.addEventListener('keydown', onKeyDown);
-    return () => window.removeEventListener('keydown', onKeyDown);
-  }, []);
-
-  // 同步演示模式目录内容
   useEffect(() => {
     if (isDemoMode) {
       setIndexData((prev) => ({
@@ -351,7 +351,6 @@ export default function App() {
     }
   }, [isDemoMode, demoTree]);
 
-  // 导航到指定目录
   const navigateToDirectory = useCallback(
     async (targetHref: string, historyMode: 'push' | 'replace' | 'none' = 'push') => {
       const normalized = targetHref.startsWith('/') ? targetHref : `/${targetHref}`;
@@ -405,6 +404,15 @@ export default function App() {
     [isDemoMode, demoTree, indexData.uri_prefix, showToast, t]
   );
 
+  const handleNavigateParent = useCallback(() => {
+    const current = normalizeDirHref(indexData.href);
+    if (current === normalizeDirHref(rootHref)) return;
+    const parts = current.split('/').filter(Boolean);
+    parts.pop();
+    const parentHref = parts.length === 0 ? '/' : `/${parts.join('/')}/`;
+    navigateToDirectory(parentHref);
+  }, [indexData.href, rootHref, navigateToDirectory]);
+
   useEffect(() => {
     if (isDemoMode) return;
     if (authState !== 'anonymous') return;
@@ -413,7 +421,6 @@ export default function App() {
     }
   }, [isDemoMode, authState, indexData.href, anonRootNormalized, navigateToDirectory]);
 
-  // 监听浏览器前进/后退
   useEffect(() => {
     if (isDemoMode) return;
     const handlePopState = () => {
@@ -444,7 +451,6 @@ export default function App() {
     }
   }, [isDemoMode, indexData.uri_prefix, indexData.href]);
 
-  // 处理列排序点击
   const handleChangeSort = (field: SortField) => {
     if (sortField === field) {
       setSortOrder((prev) => (prev === 'asc' ? 'desc' : 'asc'));
@@ -454,7 +460,7 @@ export default function App() {
     }
   };
 
-  // 计算过滤与排序后的文件列表（文件夹始终置顶）
+  // Filtered and sorted items
   const filteredAndSortedItems = useMemo(() => {
     const q = searchQuery.trim().toLowerCase();
     const filtered = indexData.paths.filter((item) =>
@@ -478,7 +484,19 @@ export default function App() {
     });
   }, [indexData.paths, searchQuery, sortField, sortOrder]);
 
-  // 当前目录下所有非文件夹条目（供预览弹窗内 ← / → 切换上一个/下一个文件）
+  // Feature 4: Detect whether current directory contains an HTML entrypoint
+  const indexHtmlItem = useMemo(() => {
+    return (
+      filteredAndSortedItems.find(
+        (item) =>
+          !isDirectory(item) &&
+          (item.name.toLowerCase() === 'index.html' ||
+            item.name.toLowerCase() === 'index.htm' ||
+            item.name.toLowerCase() === 'interactive-demo.html')
+      ) || null
+    );
+  }, [filteredAndSortedItems]);
+
   const previewableItems = useMemo(
     () => filteredAndSortedItems.filter((item) => !isDirectory(item)),
     [filteredAndSortedItems]
@@ -489,7 +507,6 @@ export default function App() {
     return previewableItems.findIndex((item) => item.name === previewItem.name);
   }, [previewItem, previewableItems]);
 
-  // 统计当前目录文件夹数、文件数与总大小
   const stats = useMemo(() => {
     let folders = 0;
     let files = 0;
@@ -505,7 +522,7 @@ export default function App() {
     return { folders, files, totalBytes };
   }, [indexData.paths]);
 
-  /* ======================= 勾选与打包（支持 Ctrl/Cmd 单击与 Shift 区间连选） ======================= */
+  /* ======================= Multi-Selection & Client Streaming ZIP ======================= */
   const [selectedNames, setSelectedNames] = useState<Set<string>>(() => new Set());
   const lastSelectedNameRef = useRef<string | null>(null);
   const [zipJob, setZipJob] = useState<ZipJobProgress | null>(null);
@@ -517,13 +534,161 @@ export default function App() {
   }, [indexData.href]);
 
   const selectedItems = useMemo(
-    () => indexData.paths.filter((item) => selectedNames.has(item.name)),
-    [indexData.paths, selectedNames]
+    () => filteredAndSortedItems.filter((item) => selectedNames.has(item.name)),
+    [filteredAndSortedItems, selectedNames]
   );
   const selectedBytes = useMemo(
     () => selectedItems.reduce((sum, item) => sum + (isDirectory(item) ? 0 : item.size || 0), 0),
     [selectedItems]
   );
+
+  /* ======================= Keyboard Focus & macOS Space Quick Preview (Feature 3) ======================= */
+  const [focusedIndex, setFocusedIndex] = useState<number>(-1);
+
+  useEffect(() => {
+    setFocusedIndex(-1);
+  }, [indexData.href, searchQuery]);
+
+  useEffect(() => {
+    const onKeyDown = (e: KeyboardEvent) => {
+      const activeEl = document.activeElement as HTMLElement | null;
+      const tag = activeEl?.tagName;
+      if (tag === 'INPUT' || tag === 'TEXTAREA' || tag === 'SELECT' || activeEl?.isContentEditable) {
+        return;
+      }
+
+      const anyOtherModalOpen =
+        mkdirOpen ||
+        !!deleteTarget ||
+        sandboxConfirmOpen ||
+        !!authError ||
+        pasteModalOpen;
+
+      if (anyOtherModalOpen) return;
+
+      if (e.key === '/' && !previewItem) {
+        e.preventDefault();
+        searchInputRef.current?.focus();
+        return;
+      }
+
+      if ((e.key === 'Backspace' || (e.altKey && e.key === 'ArrowUp')) && !previewItem) {
+        const current = normalizeDirHref(indexData.href);
+        if (current !== normalizeDirHref(rootHref)) {
+          e.preventDefault();
+          handleNavigateParent();
+        }
+        return;
+      }
+
+      // Space key: macOS Finder Quick Look toggle
+      if (e.code === 'Space' || e.key === ' ') {
+        if (tag === 'VIDEO' || tag === 'AUDIO') return;
+        e.preventDefault();
+        if (previewItem) {
+          setPreviewItem(null);
+          return;
+        }
+        let target: DufsPathItem | undefined =
+          focusedIndex >= 0 && focusedIndex < filteredAndSortedItems.length
+            ? filteredAndSortedItems[focusedIndex]
+            : selectedItems[0];
+
+        if (!target) {
+          const firstFileIdx = filteredAndSortedItems.findIndex((it) => !isDirectory(it));
+          if (firstFileIdx !== -1) {
+            setFocusedIndex(firstFileIdx);
+            target = filteredAndSortedItems[firstFileIdx];
+          }
+        }
+
+        if (target) {
+          if (isDirectory(target)) {
+            const base = normalizeDirHref(indexData.href);
+            navigateToDirectory(`${base}${target.name}/`);
+          } else {
+            setPreviewItem(target);
+          }
+        }
+        return;
+      }
+
+      if (previewItem) return;
+
+      // Enter key: open focused folder or preview focused file
+      if (e.key === 'Enter' && tag !== 'BUTTON' && tag !== 'A') {
+        if (focusedIndex >= 0 && focusedIndex < filteredAndSortedItems.length) {
+          e.preventDefault();
+          const item = filteredAndSortedItems[focusedIndex];
+          if (isDirectory(item)) {
+            const base = normalizeDirHref(indexData.href);
+            navigateToDirectory(`${base}${item.name}/`);
+          } else {
+            setPreviewItem(item);
+          }
+        }
+        return;
+      }
+
+      // Arrow keys navigation across List rows and Grid cards
+      if (
+        filteredAndSortedItems.length > 0 &&
+        (e.key === 'ArrowDown' || e.key === 'ArrowUp' || e.key === 'ArrowRight' || e.key === 'ArrowLeft')
+      ) {
+        e.preventDefault();
+        const cols =
+          viewMode === 'grid'
+            ? window.innerWidth >= 1024
+              ? 4
+              : window.innerWidth >= 768
+              ? 3
+              : window.innerWidth >= 640
+              ? 2
+              : 1
+            : 1;
+
+        setFocusedIndex((prev) => {
+          const len = filteredAndSortedItems.length;
+          let next = prev;
+          if (prev < 0) {
+            next = 0;
+          } else if (e.key === 'ArrowDown') {
+            next = Math.min(len - 1, prev + cols);
+          } else if (e.key === 'ArrowUp') {
+            next = Math.max(0, prev - cols);
+          } else if (e.key === 'ArrowRight') {
+            next = Math.min(len - 1, prev + 1);
+          } else if (e.key === 'ArrowLeft') {
+            next = Math.max(0, prev - 1);
+          }
+
+          setTimeout(() => {
+            const el = document.querySelector(`[data-item-index="${next}"]`);
+            el?.scrollIntoView({ block: 'nearest', behavior: 'smooth' });
+          }, 10);
+          return next;
+        });
+      }
+    };
+
+    window.addEventListener('keydown', onKeyDown);
+    return () => window.removeEventListener('keydown', onKeyDown);
+  }, [
+    previewItem,
+    mkdirOpen,
+    deleteTarget,
+    sandboxConfirmOpen,
+    authError,
+    pasteModalOpen,
+    focusedIndex,
+    selectedItems,
+    filteredAndSortedItems,
+    viewMode,
+    indexData.href,
+    rootHref,
+    handleNavigateParent,
+    navigateToDirectory,
+  ]);
 
   const handleToggleSelect = useCallback(
     (item: DufsPathItem, shiftKey = false) => {
@@ -579,7 +744,6 @@ export default function App() {
     });
   }, [filteredAndSortedItems]);
 
-  // 下载单个文件或将目录打包为 ?zip 下载
   const handleDownloadItem = (item: DufsPathItem) => {
     const isDir = isDirectory(item);
     const basePath = joinUrlPath(indexData.uri_prefix, indexData.href, item.name, isDir);
@@ -683,16 +847,7 @@ export default function App() {
     setPreviewItem(item);
   };
 
-  const handleNavigateParent = () => {
-    const current = normalizeDirHref(indexData.href);
-    if (current === normalizeDirHref(rootHref)) return;
-    const parts = current.split('/').filter(Boolean);
-    parts.pop();
-    const parentHref = parts.length === 0 ? '/' : `/${parts.join('/')}/`;
-    navigateToDirectory(parentHref);
-  };
-
-  /* ======================= 上传（含取消与残留清理） ======================= */
+  /* ======================= Uploads & Residue Cleanup ======================= */
   const uploadHandles = useRef(new Map<string, UploadHandle>());
   const uploadTargets = useRef(new Map<string, string>());
 
@@ -739,7 +894,10 @@ export default function App() {
 
           setTimeout(async () => {
             let demoText: string | undefined;
-            if (file.size < 200 * 1024) {
+            let demoMediaUrl: string | undefined;
+            if (file.type.startsWith('image/')) {
+              demoMediaUrl = URL.createObjectURL(file);
+            } else if (file.size < 200 * 1024) {
               try {
                 demoText = await file.text();
               } catch {
@@ -752,6 +910,7 @@ export default function App() {
               size: file.size,
               mtime: Date.now(),
               demoContent: demoText,
+              demoMediaUrl,
             };
             setDemoTree((prev) => {
               const existing = (prev[indexData.href] || []).filter(
@@ -770,6 +929,7 @@ export default function App() {
               )
             );
             showToast(t('toast.uploadSuccess', { name: file.name }));
+            reloadServerInfo();
           }, 550);
           continue;
         }
@@ -870,14 +1030,95 @@ export default function App() {
         await deleteFileOrDirectory(targetPath, true);
         showToast(t('toast.uploadCancelled'));
         await refreshCurrentDirectory();
+        reloadServerInfo();
       } catch (err) {
         showToast(t('toast.uploadCancelledNoClean', { msg: describeError(err) }));
       }
     },
-    [isDemoMode, refreshCurrentDirectory, showToast, t]
+    [isDemoMode, refreshCurrentDirectory, reloadServerInfo, showToast, t]
   );
 
-  // 执行新建文件夹 (WebDAV MKCOL)
+  /* ======================= Creative Feature 1: Global Clipboard Paste Upload ======================= */
+  useEffect(() => {
+    const handlePaste = (e: ClipboardEvent) => {
+      if (!canWrite || pasteModalOpen) return;
+      const tag = document.activeElement?.tagName;
+      if (tag === 'INPUT' || tag === 'TEXTAREA' || (document.activeElement as HTMLElement)?.isContentEditable) {
+        return;
+      }
+
+      const items = e.clipboardData?.items;
+      if (!items || items.length === 0) return;
+
+      for (let i = 0; i < items.length; i++) {
+        const it = items[i];
+        if (it.type.startsWith('image/')) {
+          const blob = it.getAsFile();
+          if (blob) {
+            e.preventDefault();
+            const now = new Date();
+            const pad = (n: number) => String(n).padStart(2, '0');
+            const ts = `${now.getFullYear()}${pad(now.getMonth() + 1)}${pad(now.getDate())}-${pad(
+              now.getHours()
+            )}${pad(now.getMinutes())}${pad(now.getSeconds())}`;
+            const ext = it.type === 'image/jpeg' ? 'jpg' : 'png';
+            const name = `paste-${ts}.${ext}`;
+            const file = new File([blob], name, { type: blob.type });
+
+            const previewUrl = URL.createObjectURL(blob);
+            setPastedFile(file);
+            setPasteSnippet(undefined);
+            setPastePreviewUrl(previewUrl);
+            setPasteModalOpen(true);
+            return;
+          }
+        }
+      }
+
+      const text = e.clipboardData?.getData('text/plain');
+      if (text && text.trim().length > 0) {
+        e.preventDefault();
+        const now = new Date();
+        const pad = (n: number) => String(n).padStart(2, '0');
+        const ts = `${now.getFullYear()}${pad(now.getMonth() + 1)}${pad(now.getDate())}-${pad(
+          now.getHours()
+        )}${pad(now.getMinutes())}${pad(now.getSeconds())}`;
+        const name = `snippet-${ts}.txt`;
+        const blob = new Blob([text], { type: 'text/plain;charset=utf-8' });
+        const file = new File([blob], name, { type: 'text/plain' });
+
+        setPastedFile(file);
+        setPasteSnippet(text);
+        setPastePreviewUrl(undefined);
+        setPasteModalOpen(true);
+      }
+    };
+
+    window.addEventListener('paste', handlePaste);
+    return () => window.removeEventListener('paste', handlePaste);
+  }, [canWrite, pasteModalOpen]);
+
+  const handleOpenPasteModalFromToolbar = useCallback(async () => {
+    try {
+      if (navigator.clipboard && navigator.clipboard.readText) {
+        const txt = await navigator.clipboard.readText();
+        if (txt && txt.trim()) {
+          setPastedFile(null);
+          setPasteSnippet(txt);
+          setPastePreviewUrl(undefined);
+          setPasteModalOpen(true);
+          return;
+        }
+      }
+    } catch {
+      // Browser/iframe blocked programmatic clipboard read; open interactive modal
+    }
+    setPastedFile(null);
+    setPasteSnippet('');
+    setPastePreviewUrl(undefined);
+    setPasteModalOpen(true);
+  }, []);
+
   const handleCreateFolder = async (folderName: string) => {
     setMkdirOpen(false);
     const targetUrl = joinUrlPath(indexData.uri_prefix, indexData.href, folderName, true);
@@ -909,6 +1150,7 @@ export default function App() {
         [childHref]: prev[childHref] || [],
       }));
       showToast(t('toast.mkdirSuccess', { name: folderName }));
+      reloadServerInfo();
       return;
     }
 
@@ -916,6 +1158,7 @@ export default function App() {
       await createDirectoryMkcol(targetUrl);
       showToast(t('toast.mkdirSuccess', { name: folderName }));
       await refreshCurrentDirectory();
+      reloadServerInfo();
     } catch (err) {
       if (err instanceof DufsAuthError) {
         setAuthError({
@@ -932,7 +1175,6 @@ export default function App() {
     }
   };
 
-  // 执行删除文件或目录 (HTTP DELETE)
   const handleConfirmDelete = async (item: DufsPathItem) => {
     setDeleteTarget(null);
     const targetUrl = joinUrlPath(
@@ -959,6 +1201,7 @@ export default function App() {
         [indexData.href]: (prev[indexData.href] || []).filter((i) => i.name !== item.name),
       }));
       showToast(t('toast.deleteSuccess', { name: item.name }));
+      reloadServerInfo();
       return;
     }
 
@@ -989,12 +1232,83 @@ export default function App() {
     }
   };
 
-  /* ======================= 登录入口与重新探测 ======================= */
+  /* ======================= Creative Feature 5: Background Mini Audio Player Logic ======================= */
+  const resolveAudioSrc = useCallback(
+    (item: DufsPathItem) => {
+      if (item.demoMediaUrl) return item.demoMediaUrl;
+      if (isDemoMode) return createDemoWavDataUri(item.name);
+      return joinUrlPath(indexData.uri_prefix, indexData.href, item.name, false);
+    },
+    [isDemoMode, indexData.uri_prefix, indexData.href]
+  );
+
+  const handleMinimizeAudio = (item: DufsPathItem, audioUrl: string, startTime = 0) => {
+    setActiveAudioItem(item);
+    setActiveAudioUrl(audioUrl);
+    setPreviewItem(null);
+    setIsAudioPlaying(true);
+    setTimeout(() => {
+      if (globalAudioRef.current) {
+        if (startTime > 0) {
+          globalAudioRef.current.currentTime = startTime;
+        }
+        globalAudioRef.current.play().catch(() => {});
+      }
+    }, 50);
+  };
+
+  const toggleGlobalAudioPlay = () => {
+    if (!globalAudioRef.current) return;
+    if (isAudioPlaying) {
+      globalAudioRef.current.pause();
+      setIsAudioPlaying(false);
+    } else {
+      globalAudioRef.current.play().then(() => setIsAudioPlaying(true)).catch(() => {});
+    }
+  };
+
+  const audioFiles = useMemo(
+    () =>
+      filteredAndSortedItems.filter(
+        (i) => !isDirectory(i) && getPreviewCategory(i.name) === 'audio'
+      ),
+    [filteredAndSortedItems]
+  );
+
+  const currentAudioIndex = useMemo(() => {
+    if (!activeAudioItem) return -1;
+    return audioFiles.findIndex((i) => i.name === activeAudioItem.name);
+  }, [activeAudioItem, audioFiles]);
+
+  const handlePrevAudio = () => {
+    if (currentAudioIndex > 0) {
+      const nextItem = audioFiles[currentAudioIndex - 1];
+      setActiveAudioItem(nextItem);
+      setActiveAudioUrl(resolveAudioSrc(nextItem));
+      setAudioCurrentTime(0);
+      setIsAudioPlaying(true);
+    }
+  };
+
+  const handleNextAudio = () => {
+    if (currentAudioIndex >= 0 && currentAudioIndex < audioFiles.length - 1) {
+      const nextItem = audioFiles[currentAudioIndex + 1];
+      setActiveAudioItem(nextItem);
+      setActiveAudioUrl(resolveAudioSrc(nextItem));
+      setAudioCurrentTime(0);
+      setIsAudioPlaying(true);
+    }
+  };
+
+  /* ======================= Auth Redirect & Session Check ======================= */
+  const resolvedLoginUrl = useMemo(
+    () => buildLoginUrl(joinUrlPath(indexData.uri_prefix, '/'), brand.loginUrl),
+    [indexData.uri_prefix, brand.loginUrl]
+  );
+
   const handleLoginClick = useCallback(() => {
-    // 带 `?login=1` 导航到站点根：这个查询让 Caddy 保持该请求受保护（未登录的裸 `/` 会被直接 302 到公开区），
-    // 于是 forward_auth 把请求弹给认证中心，登录后自动带回本站。
-    window.location.href = buildLoginUrl(joinUrlPath(indexData.uri_prefix, '/'));
-  }, [indexData.uri_prefix]);
+    window.location.href = resolvedLoginUrl;
+  }, [resolvedLoginUrl]);
 
   const handleRecheckAuth = useCallback(async () => {
     if (isDemoMode) return;
@@ -1006,7 +1320,6 @@ export default function App() {
     setServerInfo(nextInfo);
   }, [isDemoMode, indexData.uri_prefix]);
 
-  // 全局拖拽事件监听
   const handleDragEnter = (e: React.DragEvent) => {
     e.preventDefault();
     e.stopPropagation();
@@ -1045,7 +1358,6 @@ export default function App() {
     }
   };
 
-  // 复制公共直链
   const handleCopyDirectLink = (item: DufsPathItem) => {
     const relPath = joinUrlPath(
       indexData.uri_prefix,
@@ -1120,7 +1432,28 @@ export default function App() {
         }}
       />
 
+      {/* Hidden Audio element for background Mini Player */}
+      {activeAudioUrl && (
+        <audio
+          ref={globalAudioRef}
+          src={activeAudioUrl}
+          autoPlay
+          onTimeUpdate={(e) => setAudioCurrentTime(e.currentTarget.currentTime)}
+          onLoadedMetadata={(e) => setAudioDuration(e.currentTarget.duration || 0)}
+          onEnded={() => {
+            if (currentAudioIndex >= 0 && currentAudioIndex < audioFiles.length - 1) {
+              handleNextAudio();
+            } else {
+              setIsAudioPlaying(false);
+            }
+          }}
+          onPlay={() => setIsAudioPlaying(true)}
+          onPause={() => setIsAudioPlaying(false)}
+        />
+      )}
+
       <Navbar
+        brand={brand}
         searchQuery={searchQuery}
         onSearchChange={setSearchQuery}
         viewMode={viewMode}
@@ -1135,6 +1468,7 @@ export default function App() {
         authState={authState}
         onLoginClick={handleLoginClick}
         onRecheckAuth={handleRecheckAuth}
+        serverInfo={serverInfo}
         thumbPreference={thumbPreference}
         onThumbPreferenceChange={handleThumbPreferenceChange}
         serverThumbsAvailable={serverThumbsAvailable}
@@ -1148,6 +1482,7 @@ export default function App() {
         simulateAuthIntercept={simulateAuthIntercept}
         onToggleSimulateAuth={() => setSimulateAuthIntercept((v) => !v)}
         onTriggerUploadClick={() => fileInputRef.current?.click()}
+        onOpenPasteModal={handleOpenPasteModalFromToolbar}
         onOpenMkdirModal={() => setMkdirOpen(true)}
         searchInputRef={searchInputRef}
       />
@@ -1157,12 +1492,17 @@ export default function App() {
           currentHref={indexData.href}
           rootHref={rootHref}
           onNavigate={(href) => navigateToDirectory(href)}
+          onNavigateParent={handleNavigateParent}
           folderCount={stats.folders}
           fileCount={stats.files}
           totalBytes={stats.totalBytes}
+          freeBytes={serverInfo?.free_bytes}
+          viewMode={viewMode}
           sortField={sortField}
           sortOrder={sortOrder}
           onChangeSort={handleChangeSort}
+          indexHtmlName={indexHtmlItem?.name}
+          onLaunchSite={() => indexHtmlItem && setPreviewItem(indexHtmlItem)}
           showSelectAll={viewMode === 'grid'}
           allSelected={allVisibleSelected}
           someSelected={someVisibleSelected}
@@ -1173,13 +1513,9 @@ export default function App() {
           }
         />
 
-        {/*
-          ⚠ 服务端概况（磁盘水位 + 能力位）只对已登录者展示：
-          `/__lume__/info` 在 `@gated` 之后，未登录探测必然被 302 弹走 ⇒ `publicAreaOnly` 为真时
-          这里要么不渲染、要么显示成"服务器不可读"的误导状态。数据根路径也不该向匿名者暴露。
-        */}
+        {/* Low Space Banner (Way A: 0 vertical height when storage is healthy) */}
         {serverInfo && authState === 'authenticated' && !publicAreaOnly && (
-          <ServerInfoPanel status={serverInfo} onRefresh={reloadServerInfo} />
+          <LowSpaceBanner status={serverInfo} />
         )}
 
         <FileExplorer
@@ -1195,6 +1531,7 @@ export default function App() {
           allowArchive={indexData.allow_archive}
           zip={zipControls}
           selectedNames={selectedNames}
+          focusedIndex={focusedIndex}
           uriPrefix={indexData.uri_prefix}
           isDemoMode={isDemoMode}
           thumbsEnabled={thumbsEnabled}
@@ -1203,6 +1540,7 @@ export default function App() {
           onToggleSelect={handleToggleSelect}
           onToggleSelectAll={handleToggleSelectAll}
           onItemClick={handleItemClick}
+          onItemFocus={(idx) => setFocusedIndex(idx)}
           onNavigateParent={handleNavigateParent}
           onCopyDirectLink={handleCopyDirectLink}
           onDownloadItem={handleDownloadItem}
@@ -1237,6 +1575,7 @@ export default function App() {
           }
         }}
         onClose={() => setPreviewItem(null)}
+        onMinimizeAudio={handleMinimizeAudio}
         onCopyLink={handleCopyDirectLink}
         onDownload={handleDownloadItem}
       />
@@ -1253,6 +1592,29 @@ export default function App() {
         onConfirm={handleConfirmDelete}
       />
 
+      {/* Paste Upload Confirmation Modal */}
+      <PasteUploadModal
+        isOpen={pasteModalOpen}
+        initialFile={pastedFile}
+        initialText={pasteSnippet}
+        initialImagePreviewUrl={pastePreviewUrl}
+        onCancel={() => {
+          if (pastePreviewUrl) URL.revokeObjectURL(pastePreviewUrl);
+          setPasteModalOpen(false);
+          setPastedFile(null);
+          setPasteSnippet(undefined);
+          setPastePreviewUrl(undefined);
+        }}
+        onConfirm={(file) => {
+          if (pastePreviewUrl) URL.revokeObjectURL(pastePreviewUrl);
+          setPasteModalOpen(false);
+          setPastedFile(null);
+          setPasteSnippet(undefined);
+          setPastePreviewUrl(undefined);
+          handleFilesUpload([file]);
+        }}
+      />
+
       <SandboxDisableConfirmModal
         isOpen={sandboxConfirmOpen}
         onCancel={() => setSandboxConfirmOpen(false)}
@@ -1265,7 +1627,7 @@ export default function App() {
 
       <AuthPromptModal
         authError={authError}
-        loginUrl={buildLoginUrl(joinUrlPath(indexData.uri_prefix, '/'))}
+        loginUrl={resolvedLoginUrl}
         onClose={() => setAuthError(null)}
         isDemoMode={isDemoMode}
         onSimulateLoginSuccess={() => {
@@ -1292,8 +1654,39 @@ export default function App() {
         onCancelTask={handleCancelUpload}
       />
 
+      {/* Floating Mini Audio Player */}
+      <MiniAudioPlayer
+        item={activeAudioItem}
+        isPlaying={isAudioPlaying}
+        currentTime={audioCurrentTime}
+        duration={audioDuration}
+        onSeek={(time) => {
+          if (globalAudioRef.current) {
+            globalAudioRef.current.currentTime = time;
+            setAudioCurrentTime(time);
+          }
+        }}
+        onTogglePlay={toggleGlobalAudioPlay}
+        onPrev={currentAudioIndex > 0 ? handlePrevAudio : undefined}
+        onNext={currentAudioIndex >= 0 && currentAudioIndex < audioFiles.length - 1 ? handleNextAudio : undefined}
+        onExpand={() => {
+          if (activeAudioItem) {
+            if (globalAudioRef.current) globalAudioRef.current.pause();
+            setPreviewItem(activeAudioItem);
+          }
+        }}
+        onClose={() => {
+          if (globalAudioRef.current) globalAudioRef.current.pause();
+          setIsAudioPlaying(false);
+          setActiveAudioItem(null);
+          setActiveAudioUrl('');
+          setAudioCurrentTime(0);
+          setAudioDuration(0);
+        }}
+      />
+
       {toastMessage && (
-        <div className="fixed bottom-5 left-1/2 -translate-x-1/2 z-50 max-w-[90vw] truncate px-4 py-2.5 rounded-xl bg-slate-900 dark:bg-white text-white dark:text-slate-900 text-xs font-medium shadow-xl border border-slate-700/50">
+        <div className="fixed bottom-5 left-1/2 -translate-x-1/2 z-50 max-w-[90vw] truncate px-4 py-2.5 rounded-xl bg-slate-900 dark:bg-white text-white dark:text-slate-900 text-xs font-medium shadow-2xl border border-slate-700/50 animate-slideUp">
           {toastMessage}
         </div>
       )}

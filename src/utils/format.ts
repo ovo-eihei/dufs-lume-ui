@@ -88,7 +88,7 @@ export function buildAbsoluteUrl(relativePath: string): string {
 /* ======================= 目录路径工具 ======================= */
 
 /**
- * dufs 注入的 `href` 对子目录**不带尾斜杠**（实测 `GET /share/` 返回 `"href":"/share"`，
+ * dufs 注入的 `href` 对子目录**不带尾斜杠**（例如 `GET /share/` 返回 `"href":"/share"`，
  * 根目录才是 `"/"`）⇒ 任何路径比较都必须先归一化，别直接拼字符串比。
  */
 export function normalizeDirHref(href: string): string {

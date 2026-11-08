@@ -1,8 +1,9 @@
-import React, { useState } from 'react';
+import React, { useState, useEffect } from 'react';
 import { useTranslation } from 'react-i18next';
 import {
   FolderPlus,
   UploadCloud,
+  ClipboardPaste,
   CheckCircle2,
   AlertTriangle,
   ShieldAlert,
@@ -10,9 +11,25 @@ import {
   X,
   Trash2,
   Loader2,
+  Music,
+  Play,
+  Pause,
+  SkipBack,
+  SkipForward,
+  Maximize2,
 } from 'lucide-react';
 import { DufsPathItem, UploadTask } from '../types/dufs';
 import { formatBytes } from '../utils/format';
+import { useModalTransition } from '../utils/useModalTransition';
+
+function buildTimestampName(prefix: string, ext: string): string {
+  const now = new Date();
+  const pad = (n: number) => String(n).padStart(2, '0');
+  const ts = `${now.getFullYear()}${pad(now.getMonth() + 1)}${pad(now.getDate())}-${pad(
+    now.getHours()
+  )}${pad(now.getMinutes())}${pad(now.getSeconds())}`;
+  return `${prefix}-${ts}.${ext}`;
+}
 
 /* ======================= 1. 新建文件夹弹窗 ======================= */
 interface NewFolderModalProps {
@@ -29,8 +46,9 @@ export const NewFolderModal: React.FC<NewFolderModalProps> = ({
   const { t } = useTranslation();
   const [folderName, setFolderName] = useState('');
   const [error, setError] = useState<string | null>(null);
+  const { rendered, isClosing } = useModalTransition(isOpen, 160);
 
-  if (!isOpen) return null;
+  if (!rendered) return null;
 
   const handleCreate = (e: React.FormEvent) => {
     e.preventDefault();
@@ -46,11 +64,15 @@ export const NewFolderModal: React.FC<NewFolderModalProps> = ({
 
   return (
     <div
-      className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-slate-950/70 backdrop-blur-sm"
+      className={`fixed inset-0 z-50 flex items-center justify-center p-4 bg-slate-950/70 backdrop-blur-sm ${
+        isClosing ? 'animate-fadeOut' : 'animate-fadeIn'
+      }`}
       onClick={onClose}
     >
       <div
-        className="w-full max-w-md rounded-2xl bg-white dark:bg-slate-900 border border-slate-200 dark:border-slate-800 shadow-xl p-6"
+        className={`w-full max-w-md rounded-2xl bg-white dark:bg-slate-900 border border-slate-200 dark:border-slate-800 shadow-2xl p-6 ${
+          isClosing ? 'animate-modalOut' : 'animate-modalIn'
+        }`}
         onClick={(e) => e.stopPropagation()}
       >
         <div className="flex items-center justify-between mb-4">
@@ -65,7 +87,7 @@ export const NewFolderModal: React.FC<NewFolderModalProps> = ({
           <button
             type="button"
             onClick={onClose}
-            className="p-1.5 rounded-lg text-slate-400 hover:text-slate-700 dark:hover:text-slate-200"
+            className="p-1.5 rounded-lg text-slate-400 hover:text-slate-700 dark:hover:text-slate-200 active:scale-90 transition-transform"
           >
             <X className="w-4 h-4" />
           </button>
@@ -82,7 +104,7 @@ export const NewFolderModal: React.FC<NewFolderModalProps> = ({
                 if (error) setError(null);
               }}
               placeholder={t('mkdir.placeholder')}
-              className="w-full px-3.5 py-2.5 text-sm rounded-xl bg-slate-100 dark:bg-slate-800 text-slate-900 dark:text-white border border-slate-200 dark:border-slate-700 focus:outline-none focus:border-indigo-500"
+              className="w-full px-3.5 py-2.5 text-sm rounded-xl bg-slate-100 dark:bg-slate-800 text-slate-900 dark:text-white border border-slate-200 dark:border-slate-700 focus:outline-none focus:border-indigo-500 focus:ring-2 focus:ring-indigo-500/20 transition-all"
             />
             {error ? (
               <p className="text-xs text-rose-500 mt-1.5">{error}</p>
@@ -95,13 +117,13 @@ export const NewFolderModal: React.FC<NewFolderModalProps> = ({
             <button
               type="button"
               onClick={onClose}
-              className="px-4 py-2 rounded-xl text-xs font-medium text-slate-600 dark:text-slate-400 hover:bg-slate-100 dark:hover:bg-slate-800"
+              className="px-4 py-2 rounded-xl text-xs font-medium text-slate-600 dark:text-slate-400 hover:bg-slate-100 dark:hover:bg-slate-800 active:scale-95 transition-all"
             >
               {t('mkdir.cancel')}
             </button>
             <button
               type="submit"
-              className="px-4 py-2 rounded-xl text-xs font-semibold bg-indigo-600 hover:bg-indigo-500 text-white shadow-sm"
+              className="px-4 py-2 rounded-xl text-xs font-semibold bg-indigo-600 hover:bg-indigo-500 text-white shadow-sm active:scale-95 transition-all"
             >
               {t('mkdir.create')}
             </button>
@@ -125,15 +147,26 @@ export const DeleteConfirmModal: React.FC<DeleteConfirmModalProps> = ({
   onConfirm,
 }) => {
   const { t } = useTranslation();
-  if (!targetItem) return null;
+  const { rendered, isClosing } = useModalTransition(!!targetItem, 160);
+  const [cachedItem, setCachedItem] = useState<DufsPathItem | null>(targetItem);
+
+  useEffect(() => {
+    if (targetItem) setCachedItem(targetItem);
+  }, [targetItem]);
+
+  if (!rendered || !cachedItem) return null;
 
   return (
     <div
-      className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-slate-950/70 backdrop-blur-sm"
+      className={`fixed inset-0 z-50 flex items-center justify-center p-4 bg-slate-950/70 backdrop-blur-sm ${
+        isClosing ? 'animate-fadeOut' : 'animate-fadeIn'
+      }`}
       onClick={onCancel}
     >
       <div
-        className="w-full max-w-sm rounded-2xl bg-white dark:bg-slate-900 border border-slate-200 dark:border-slate-800 shadow-xl p-6"
+        className={`w-full max-w-sm rounded-2xl bg-white dark:bg-slate-900 border border-slate-200 dark:border-slate-800 shadow-2xl p-6 ${
+          isClosing ? 'animate-modalOut' : 'animate-modalIn'
+        }`}
         onClick={(e) => e.stopPropagation()}
       >
         <div className="flex items-center gap-3 mb-3">
@@ -145,20 +178,20 @@ export const DeleteConfirmModal: React.FC<DeleteConfirmModalProps> = ({
           </h3>
         </div>
         <p className="text-xs sm:text-sm text-slate-600 dark:text-slate-300 leading-relaxed mb-5">
-          {t('file.deleteConfirmDesc', { name: targetItem.name })}
+          {t('file.deleteConfirmDesc', { name: cachedItem.name })}
         </p>
         <div className="flex items-center justify-end gap-2">
           <button
             type="button"
             onClick={onCancel}
-            className="px-4 py-2 rounded-xl text-xs font-medium text-slate-600 dark:text-slate-400 hover:bg-slate-100 dark:hover:bg-slate-800"
+            className="px-4 py-2 rounded-xl text-xs font-medium text-slate-600 dark:text-slate-400 hover:bg-slate-100 dark:hover:bg-slate-800 active:scale-95 transition-all"
           >
             {t('file.cancel')}
           </button>
           <button
             type="button"
-            onClick={() => onConfirm(targetItem)}
-            className="px-4 py-2 rounded-xl text-xs font-semibold bg-rose-600 hover:bg-rose-500 text-white shadow-sm"
+            onClick={() => onConfirm(cachedItem)}
+            className="px-4 py-2 rounded-xl text-xs font-semibold bg-rose-600 hover:bg-rose-500 text-white shadow-sm active:scale-95 transition-all"
           >
             {t('file.confirmDelete')}
           </button>
@@ -168,7 +201,213 @@ export const DeleteConfirmModal: React.FC<DeleteConfirmModalProps> = ({
   );
 };
 
-/* ======================= 3. 全屏拖拽上传覆盖层 ======================= */
+/* ======================= 3. 剪贴板粘贴上传弹窗 (Feature 1) ======================= */
+interface PasteUploadModalProps {
+  isOpen: boolean;
+  initialFile: File | null;
+  initialText?: string;
+  initialImagePreviewUrl?: string;
+  onCancel: () => void;
+  onConfirm: (file: File) => void;
+}
+
+export const PasteUploadModal: React.FC<PasteUploadModalProps> = ({
+  isOpen,
+  initialFile,
+  initialText,
+  initialImagePreviewUrl,
+  onCancel,
+  onConfirm,
+}) => {
+  const { t } = useTranslation();
+  const [fileName, setFileName] = useState('');
+  const [textContent, setTextContent] = useState('');
+  const [imageBlob, setImageBlob] = useState<File | null>(null);
+  const [imageUrl, setImageUrl] = useState<string | undefined>(undefined);
+  const { rendered, isClosing } = useModalTransition(isOpen, 160);
+
+  useEffect(() => {
+    if (!isOpen) return;
+    if (initialFile && initialImagePreviewUrl) {
+      setImageBlob(initialFile);
+      setImageUrl(initialImagePreviewUrl);
+      setTextContent('');
+      setFileName(initialFile.name);
+    } else if (initialText !== undefined && initialText.length > 0) {
+      setImageBlob(null);
+      setImageUrl(undefined);
+      setTextContent(initialText);
+      setFileName(initialFile?.name || buildTimestampName('snippet', 'txt'));
+    } else {
+      setImageBlob(null);
+      setImageUrl(undefined);
+      setTextContent('');
+      setFileName(buildTimestampName('snippet', 'txt'));
+    }
+  }, [isOpen, initialFile, initialText, initialImagePreviewUrl]);
+
+  if (!rendered) return null;
+
+  const handleModalPaste = (e: React.ClipboardEvent) => {
+    const items = e.clipboardData?.items;
+    if (!items) return;
+    for (let i = 0; i < items.length; i++) {
+      const it = items[i];
+      if (it.type.startsWith('image/')) {
+        const blob = it.getAsFile();
+        if (blob) {
+          e.preventDefault();
+          const ext = it.type === 'image/jpeg' ? 'jpg' : 'png';
+          const name = buildTimestampName('paste', ext);
+          const file = new File([blob], name, { type: blob.type });
+          if (imageUrl && imageUrl !== initialImagePreviewUrl) {
+            URL.revokeObjectURL(imageUrl);
+          }
+          setImageBlob(file);
+          setImageUrl(URL.createObjectURL(blob));
+          setFileName(name);
+          return;
+        }
+      }
+    }
+  };
+
+  const handleSubmit = (e: React.FormEvent) => {
+    e.preventDefault();
+    const targetName = (fileName.trim() || buildTimestampName('snippet', 'txt')).replace(/[\\/]/g, '-');
+    if (imageBlob) {
+      const finalFile = new File([imageBlob], targetName, {
+        type: imageBlob.type,
+        lastModified: Date.now(),
+      });
+      onConfirm(finalFile);
+      return;
+    }
+    const content = textContent;
+    if (!content.trim()) return;
+    const blob = new Blob([content], { type: 'text/plain;charset=utf-8' });
+    const finalFile = new File([blob], targetName, {
+      type: 'text/plain',
+      lastModified: Date.now(),
+    });
+    onConfirm(finalFile);
+  };
+
+  const canSubmit = !!imageBlob || textContent.trim().length > 0;
+
+  return (
+    <div
+      className={`fixed inset-0 z-50 flex items-center justify-center p-4 bg-slate-950/70 backdrop-blur-sm ${
+        isClosing ? 'animate-fadeOut' : 'animate-fadeIn'
+      }`}
+      onClick={onCancel}
+    >
+      <div
+        onPaste={handleModalPaste}
+        className={`w-full max-w-lg rounded-2xl bg-white dark:bg-slate-900 border border-slate-200 dark:border-slate-800 shadow-2xl p-6 ${
+          isClosing ? 'animate-modalOut' : 'animate-modalIn'
+        }`}
+        onClick={(e) => e.stopPropagation()}
+      >
+        <div className="flex items-center justify-between mb-4">
+          <div className="flex items-center gap-2.5">
+            <div className="w-9 h-9 rounded-xl bg-indigo-500/10 text-indigo-600 dark:text-indigo-400 flex items-center justify-center">
+              <ClipboardPaste className="w-5 h-5" />
+            </div>
+            <div>
+              <h3 className="font-bold text-base text-slate-900 dark:text-white">
+                {t('paste.title')}
+              </h3>
+              <p className="text-[11px] text-slate-400">
+                {imageBlob
+                  ? t('paste.imageSnippet', { size: formatBytes(imageBlob.size) })
+                  : t('paste.textSnippet', {
+                      bytes: formatBytes(new Blob([textContent]).size),
+                    })}
+              </p>
+            </div>
+          </div>
+          <button
+            type="button"
+            onClick={onCancel}
+            className="p-1.5 rounded-lg text-slate-400 hover:text-slate-700 dark:hover:text-slate-200 active:scale-90 transition-transform"
+          >
+            <X className="w-4 h-4" />
+          </button>
+        </div>
+
+        <form onSubmit={handleSubmit} className="space-y-4">
+          <div>
+            <label className="block text-xs font-medium text-slate-600 dark:text-slate-400 mb-1.5">
+              {t('paste.previewLabel')}
+            </label>
+            {imageUrl ? (
+              <div className="relative flex items-center justify-center max-h-52 overflow-hidden rounded-xl border border-slate-200 dark:border-slate-800 bg-slate-900/5 dark:bg-slate-950 p-2">
+                <img
+                  src={imageUrl}
+                  alt="Paste Preview"
+                  className="max-h-48 w-auto object-contain rounded-lg"
+                />
+                <button
+                  type="button"
+                  onClick={() => {
+                    setImageBlob(null);
+                    setImageUrl(undefined);
+                    setFileName(buildTimestampName('snippet', 'txt'));
+                  }}
+                  className="absolute top-2 right-2 p-1 rounded-lg bg-slate-900/70 text-white hover:bg-slate-900 text-xs"
+                >
+                  <X className="w-3.5 h-3.5" />
+                </button>
+              </div>
+            ) : (
+              <textarea
+                rows={5}
+                autoFocus={!initialText}
+                value={textContent}
+                onChange={(e) => setTextContent(e.target.value)}
+                placeholder={t('paste.placeholder')}
+                className="w-full px-3.5 py-2.5 text-xs font-mono leading-relaxed rounded-xl bg-slate-50 dark:bg-slate-950/70 text-slate-800 dark:text-slate-200 border border-slate-200 dark:border-slate-800 focus:outline-none focus:border-indigo-500 focus:ring-2 focus:ring-indigo-500/20 transition-all resize-y"
+              />
+            )}
+          </div>
+
+          <div>
+            <label className="block text-xs font-medium text-slate-600 dark:text-slate-400 mb-1.5">
+              {t('paste.fileNameLabel')}
+            </label>
+            <input
+              type="text"
+              autoFocus={!!initialText || !!imageUrl}
+              value={fileName}
+              onChange={(e) => setFileName(e.target.value)}
+              className="w-full px-3.5 py-2 text-xs sm:text-sm rounded-xl bg-slate-100 dark:bg-slate-800 text-slate-900 dark:text-white border border-slate-200 dark:border-slate-700 focus:outline-none focus:border-indigo-500 focus:ring-2 focus:ring-indigo-500/20 transition-all font-mono"
+            />
+          </div>
+
+          <div className="flex items-center justify-end gap-2 pt-1">
+            <button
+              type="button"
+              onClick={onCancel}
+              className="px-4 py-2 rounded-xl text-xs font-medium text-slate-600 dark:text-slate-400 hover:bg-slate-100 dark:hover:bg-slate-800 active:scale-95 transition-all"
+            >
+              {t('paste.cancelBtn')}
+            </button>
+            <button
+              type="submit"
+              disabled={!canSubmit}
+              className="px-4 py-2 rounded-xl text-xs font-semibold bg-indigo-600 hover:bg-indigo-500 text-white shadow-sm disabled:opacity-40 disabled:cursor-not-allowed active:scale-95 transition-all"
+            >
+              {t('paste.confirmBtn')}
+            </button>
+          </div>
+        </form>
+      </div>
+    </div>
+  );
+};
+
+/* ======================= 4. 全屏拖拽上传覆盖层 ======================= */
 interface DragDropOverlayProps {
   active: boolean;
   currentHref: string;
@@ -179,8 +418,8 @@ export const DragDropOverlay: React.FC<DragDropOverlayProps> = ({ active, curren
   if (!active) return null;
 
   return (
-    <div className="fixed inset-0 z-50 pointer-events-none bg-indigo-950/60 backdrop-blur-md flex items-center justify-center p-6">
-      <div className="w-full max-w-xl rounded-3xl border-2 border-dashed border-indigo-400 bg-slate-900/90 p-12 text-center shadow-2xl">
+    <div className="fixed inset-0 z-50 pointer-events-none bg-indigo-950/60 backdrop-blur-md flex items-center justify-center p-6 animate-fadeIn">
+      <div className="w-full max-w-xl rounded-3xl border-2 border-dashed border-indigo-400 bg-slate-900/90 p-12 text-center shadow-2xl animate-modalIn">
         <div className="w-16 h-16 rounded-2xl bg-indigo-500/20 text-indigo-400 flex items-center justify-center mx-auto mb-4 animate-bounce">
           <UploadCloud className="w-9 h-9" />
         </div>
@@ -193,12 +432,11 @@ export const DragDropOverlay: React.FC<DragDropOverlayProps> = ({ active, curren
   );
 };
 
-/* ======================= 4. 悬浮上传任务进度面板 ======================= */
+/* ======================= 5. 悬浮上传任务进度面板 ======================= */
 interface UploadQueuePanelProps {
   tasks: UploadTask[];
   onClearCompleted: () => void;
   onDismissTask: (id: string) => void;
-  /** 取消正在上传的任务：abort XHR + 删除服务端残留 */
   onCancelTask: (id: string) => void;
 }
 
@@ -212,7 +450,7 @@ export const UploadQueuePanel: React.FC<UploadQueuePanelProps> = ({
   if (tasks.length === 0) return null;
 
   return (
-    <div className="fixed bottom-3 inset-x-3 sm:inset-x-auto sm:bottom-4 sm:right-4 z-40 sm:w-96 rounded-2xl bg-white dark:bg-slate-900 border border-slate-200 dark:border-slate-800 shadow-2xl overflow-hidden">
+    <div className="fixed bottom-3 inset-x-3 sm:inset-x-auto sm:bottom-4 sm:right-4 z-40 sm:w-96 rounded-2xl bg-white dark:bg-slate-900 border border-slate-200 dark:border-slate-800 shadow-2xl overflow-hidden animate-slideUp">
       <div className="flex items-center justify-between px-4 py-3 bg-slate-50 dark:bg-slate-800/80 border-b border-slate-200 dark:border-slate-800">
         <span className="text-xs font-bold text-slate-800 dark:text-slate-200">
           {t('upload.panelTitle')} ({tasks.length})
@@ -220,7 +458,7 @@ export const UploadQueuePanel: React.FC<UploadQueuePanelProps> = ({
         <button
           type="button"
           onClick={onClearCompleted}
-          className="text-[11px] font-medium text-indigo-600 dark:text-indigo-400 hover:underline"
+          className="text-[11px] font-medium text-indigo-600 dark:text-indigo-400 hover:underline active:scale-95 transition-transform"
         >
           {t('upload.clearCompleted')}
         </button>
@@ -250,18 +488,18 @@ export const UploadQueuePanel: React.FC<UploadQueuePanelProps> = ({
                     type="button"
                     onClick={() => onCancelTask(task.id)}
                     title={t('upload.cancelBtn')}
-                    className="px-1.5 py-0.5 rounded-md text-[11px] font-medium text-rose-600 dark:text-rose-400 hover:bg-rose-50 dark:hover:bg-rose-950/40 transition-colors"
+                    className="px-1.5 py-0.5 rounded-md text-[11px] font-medium text-rose-600 dark:text-rose-400 hover:bg-rose-50 dark:hover:bg-rose-950/40 active:scale-90 transition-all"
                   >
                     {t('upload.cancelBtn')}
                   </button>
                 ) : (
-                <button
-                  type="button"
-                  onClick={() => onDismissTask(task.id)}
-                  className="text-slate-400 hover:text-slate-600"
-                >
-                  <X className="w-3.5 h-3.5" />
-                </button>
+                  <button
+                    type="button"
+                    onClick={() => onDismissTask(task.id)}
+                    className="text-slate-400 hover:text-slate-600 active:scale-90 transition-transform"
+                  >
+                    <X className="w-3.5 h-3.5" />
+                  </button>
                 )}
               </div>
             </div>
@@ -300,12 +538,132 @@ export const UploadQueuePanel: React.FC<UploadQueuePanelProps> = ({
   );
 };
 
-/* ======================= 5. 关闭 HTML 预览沙箱的二次确认 ======================= */
-/**
- * 「关闭沙箱」的唯一确认入口：设置面板的开关与预览提示条上的按钮都调用同一个
- * `onRequestDisableSandbox()`，因此只有一份弹窗、只有一条关闭路径。
- * 必须勾选「我已了解上述风险」才能点确认（防手滑）。
- */
+/* ======================= 6. 后台悬浮迷你音频播放器 (Feature 5) ======================= */
+function formatAudioSeconds(sec: number): string {
+  if (!Number.isFinite(sec) || sec < 0) return '00:00';
+  const m = Math.floor(sec / 60);
+  const s = Math.floor(sec % 60);
+  return `${String(m).padStart(2, '0')}:${String(s).padStart(2, '0')}`;
+}
+
+interface MiniAudioPlayerProps {
+  item: DufsPathItem | null;
+  isPlaying: boolean;
+  currentTime: number;
+  duration: number;
+  onSeek: (time: number) => void;
+  onTogglePlay: () => void;
+  onPrev?: () => void;
+  onNext?: () => void;
+  onExpand: () => void;
+  onClose: () => void;
+}
+
+export const MiniAudioPlayer: React.FC<MiniAudioPlayerProps> = ({
+  item,
+  isPlaying,
+  currentTime,
+  duration,
+  onSeek,
+  onTogglePlay,
+  onPrev,
+  onNext,
+  onExpand,
+  onClose,
+}) => {
+  const { t } = useTranslation();
+  if (!item) return null;
+
+  const progressPercent = duration > 0 ? Math.min(100, (currentTime / duration) * 100) : 0;
+
+  return (
+    <div className="fixed bottom-4 left-3 sm:left-6 z-40 w-[calc(100vw-1.5rem)] sm:w-80 rounded-2xl bg-white/95 dark:bg-slate-900/95 backdrop-blur-md border border-slate-200/90 dark:border-slate-800 shadow-2xl p-3 animate-slideUp">
+      <div className="flex items-center gap-2.5">
+        <div
+          onClick={onExpand}
+          className="w-9 h-9 rounded-xl bg-gradient-to-tr from-pink-500 to-indigo-500 flex items-center justify-center text-white shrink-0 shadow-sm cursor-pointer"
+        >
+          <Music className={`w-4 h-4 ${isPlaying ? 'animate-pulse' : ''}`} />
+        </div>
+
+        <div className="min-w-0 flex-1 cursor-pointer" onClick={onExpand}>
+          <p className="text-xs font-semibold text-slate-900 dark:text-white truncate" title={item.name}>
+            {item.name}
+          </p>
+          <p className="text-[10px] font-mono text-slate-400 truncate">
+            {formatAudioSeconds(currentTime)} / {formatAudioSeconds(duration)} ·{' '}
+            {isPlaying ? t('player.nowPlaying') : t('player.paused')}
+          </p>
+        </div>
+
+        <div className="flex items-center gap-0.5 shrink-0">
+          {onPrev && (
+            <button
+              type="button"
+              onClick={onPrev}
+              title={t('player.prevTrack')}
+              className="p-1.5 rounded-lg text-slate-500 hover:text-slate-800 dark:text-slate-400 dark:hover:text-slate-200 hover:bg-slate-100 dark:hover:bg-slate-800 active:scale-90 transition-all"
+            >
+              <SkipBack className="w-3.5 h-3.5" />
+            </button>
+          )}
+          <button
+            type="button"
+            onClick={onTogglePlay}
+            title={isPlaying ? t('player.pause') : t('player.play')}
+            className="p-1.5 rounded-xl bg-indigo-600 hover:bg-indigo-500 text-white shadow-sm active:scale-90 transition-all"
+          >
+            {isPlaying ? <Pause className="w-3.5 h-3.5" /> : <Play className="w-3.5 h-3.5" />}
+          </button>
+          {onNext && (
+            <button
+              type="button"
+              onClick={onNext}
+              title={t('player.nextTrack')}
+              className="p-1.5 rounded-lg text-slate-500 hover:text-slate-800 dark:text-slate-400 dark:hover:text-slate-200 hover:bg-slate-100 dark:hover:bg-slate-800 active:scale-90 transition-all"
+            >
+              <SkipForward className="w-3.5 h-3.5" />
+            </button>
+          )}
+          <button
+            type="button"
+            onClick={onExpand}
+            title={t('player.expand')}
+            className="p-1.5 rounded-lg text-slate-400 hover:text-slate-600 dark:hover:text-slate-300 hover:bg-slate-100 dark:hover:bg-slate-800 active:scale-90 transition-all"
+          >
+            <Maximize2 className="w-3.5 h-3.5" />
+          </button>
+          <button
+            type="button"
+            onClick={onClose}
+            title={t('player.close')}
+            className="p-1.5 rounded-lg text-slate-400 hover:text-slate-600 dark:hover:text-slate-300 hover:bg-slate-100 dark:hover:bg-slate-800 active:scale-90 transition-all"
+          >
+            <X className="w-3.5 h-3.5" />
+          </button>
+        </div>
+      </div>
+
+      <div className="mt-2 flex items-center">
+        <input
+          type="range"
+          min={0}
+          max={duration > 0 ? duration : 1}
+          step={0.05}
+          value={currentTime}
+          onChange={(e) => onSeek(parseFloat(e.target.value))}
+          aria-label="Audio Seek"
+          style={{
+            background: `linear-gradient(to right, #6366f1 ${progressPercent}%, rgba(148,163,184,0.25) ${progressPercent}%)`,
+          }}
+          className="w-full h-1.5 rounded-full appearance-none cursor-pointer accent-indigo-600"
+        />
+      </div>
+    </div>
+  );
+};
+
+/* ======================= 7. 关闭 HTML 预览沙箱的二次确认 ======================= */
 interface SandboxDisableConfirmModalProps {
   isOpen: boolean;
   onCancel: () => void;
@@ -319,8 +677,9 @@ export const SandboxDisableConfirmModal: React.FC<SandboxDisableConfirmModalProp
 }) => {
   const { t } = useTranslation();
   const [acknowledged, setAcknowledged] = useState(false);
+  const { rendered, isClosing } = useModalTransition(isOpen, 160);
 
-  if (!isOpen) return null;
+  if (!rendered) return null;
 
   const handleCancel = () => {
     setAcknowledged(false);
@@ -335,11 +694,15 @@ export const SandboxDisableConfirmModal: React.FC<SandboxDisableConfirmModalProp
 
   return (
     <div
-      className="fixed inset-0 z-[60] flex items-center justify-center p-4 bg-slate-950/70 backdrop-blur-sm"
+      className={`fixed inset-0 z-[60] flex items-center justify-center p-4 bg-slate-950/70 backdrop-blur-sm ${
+        isClosing ? 'animate-fadeOut' : 'animate-fadeIn'
+      }`}
       onClick={handleCancel}
     >
       <div
-        className="w-full max-w-lg rounded-2xl bg-white dark:bg-slate-900 border border-slate-200 dark:border-slate-800 shadow-xl p-6"
+        className={`w-full max-w-lg rounded-2xl bg-white dark:bg-slate-900 border border-slate-200 dark:border-slate-800 shadow-2xl p-6 ${
+          isClosing ? 'animate-modalOut' : 'animate-modalIn'
+        }`}
         onClick={(e) => e.stopPropagation()}
       >
         <div className="flex items-center gap-3 mb-4">
@@ -382,7 +745,7 @@ export const SandboxDisableConfirmModal: React.FC<SandboxDisableConfirmModalProp
           <button
             type="button"
             onClick={handleCancel}
-            className="px-4 py-2 rounded-xl text-xs font-medium text-slate-600 dark:text-slate-400 hover:bg-slate-100 dark:hover:bg-slate-800"
+            className="px-4 py-2 rounded-xl text-xs font-medium text-slate-600 dark:text-slate-400 hover:bg-slate-100 dark:hover:bg-slate-800 active:scale-95 transition-all"
           >
             {t('sandbox.keepSandbox')}
           </button>
@@ -390,7 +753,7 @@ export const SandboxDisableConfirmModal: React.FC<SandboxDisableConfirmModalProp
             type="button"
             disabled={!acknowledged}
             onClick={handleConfirm}
-            className="px-4 py-2 rounded-xl text-xs font-semibold bg-amber-600 hover:bg-amber-500 text-white shadow-sm disabled:opacity-40 disabled:cursor-not-allowed disabled:hover:bg-amber-600 transition-colors"
+            className="px-4 py-2 rounded-xl text-xs font-semibold bg-amber-600 hover:bg-amber-500 text-white shadow-sm disabled:opacity-40 disabled:cursor-not-allowed disabled:hover:bg-amber-600 active:scale-95 transition-all"
           >
             {t('sandbox.confirmDisable')}
           </button>
