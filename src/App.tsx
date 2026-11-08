@@ -1412,8 +1412,12 @@ export default function App() {
     : null;
 
   return (
+    // `overflow-x-clip` 而不是 `overflow-x-hidden`：后者会让 overflow-y 按规范算成 auto ⇒ 这个 div
+    // 自己变成滞动容器，里面的 `sticky` 顶栏就“跟着页面跑”（实测就是这个原因）。
+    // `clip` 不建立滞动容器，sticky 仍以视口为参考。Safari <16 不认 clip ⇒ 声明被丢弃，
+    // 代价只是可能多一条横向滚动条，不会弄坏顶栏。
     <div
-      className="min-h-screen flex flex-col overflow-x-hidden bg-slate-50 dark:bg-slate-950 text-slate-900 dark:text-slate-100"
+      className="min-h-screen flex flex-col overflow-x-clip bg-slate-50 dark:bg-slate-950 text-slate-900 dark:text-slate-100"
       onDragEnter={handleDragEnter}
       onDragLeave={handleDragLeave}
       onDragOver={handleDragOver}

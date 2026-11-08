@@ -60,7 +60,10 @@
     "cancel": "取消",
     "confirmDelete": "确认删除",
     "select": "选择",
-    "selectAll": "全选"
+    "selectAll": "全选",
+    "showing": "已显示 {{shown}} / 共 {{total}} 项",
+    "loadMore": "再加载 {{n}} 项",
+    "allLoaded": "已全部加载（{{total}} 项）"
   },
   "selection": {
     "summary": "已选 {{count}} 项 · 共 {{size}}",
