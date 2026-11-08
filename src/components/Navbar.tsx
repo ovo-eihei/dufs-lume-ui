@@ -582,6 +582,11 @@ export const Navbar: React.FC<NavbarProps> = ({
                     </div>
                   </>
                 )}
+
+                {/* 主题署名：原来在页脚整行占高，移进面板底部 */}
+                <div className="border-t border-slate-100 dark:border-slate-800 pt-2 px-1 text-center text-[11px] text-slate-400 dark:text-slate-500">
+                  {t('app.poweredBy')}
+                </div>
               </div>
             )}
           </div>
