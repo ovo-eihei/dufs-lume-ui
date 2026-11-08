@@ -474,138 +474,141 @@ export const MediaPreviewModal: React.FC<MediaPreviewModalProps> = ({
         onClick={(e) => e.stopPropagation()}
       >
         {/* Top Header */}
-        <div className="flex items-center justify-between gap-2 sm:gap-3 px-3 sm:px-5 py-2.5 sm:py-3.5 border-b border-slate-200 dark:border-slate-800 bg-slate-50/70 dark:bg-slate-900/60 shrink-0">
-          <div className="flex items-center gap-2 min-w-0 flex-1">
+        <div className="px-3 sm:px-5 py-2.5 sm:py-3 border-b border-slate-200 dark:border-slate-800 bg-slate-50/70 dark:bg-slate-900/60 shrink-0">
+          {/* Row 1: the name owns the full header width */}
+          <div className="flex items-center gap-2 min-w-0">
             <FileIconBadge item={activeItem} size="sm" />
-            <div className="min-w-0">
-              <h3 className="font-semibold text-sm sm:text-base text-slate-900 dark:text-white truncate">
-                {activeItem.name}
-              </h3>
-              <p className="text-xs text-slate-500 dark:text-slate-400 whitespace-nowrap truncate">
-                {formatBytes(activeItem.size)}
-                <span className="hidden sm:inline">
-                  {' · '}
-                  {formatDateTime(activeItem.mtime, i18n.language)}
-                </span>
-              </p>
-            </div>
+            <h3
+              dir="auto"
+              title={activeItem.name}
+              className="min-w-0 truncate font-semibold text-sm sm:text-base text-slate-900 dark:text-white"
+            >
+              {activeItem.name}
+            </h3>
           </div>
 
-          <div className="flex items-center gap-1 sm:gap-1.5 shrink-0">
-            {(hasPrev || hasNext) && (
-              <div className="inline-flex items-center p-0.5 rounded-xl bg-slate-100 dark:bg-slate-800 border border-slate-200/60 dark:border-slate-700/60">
-                <button
-                  type="button"
-                  disabled={!hasPrev}
-                  onClick={onPrev}
-                  title={t('preview.prevFile')}
-                  aria-label={t('preview.prevFile')}
-                  className="p-1.5 rounded-lg text-slate-600 dark:text-slate-300 hover:bg-white dark:hover:bg-slate-900 disabled:opacity-35 disabled:pointer-events-none active:scale-90 transition-all"
-                >
-                  <ChevronLeft className="w-4 h-4" />
-                </button>
-                <button
-                  type="button"
-                  disabled={!hasNext}
-                  onClick={onNext}
-                  title={t('preview.nextFile')}
-                  aria-label={t('preview.nextFile')}
-                  className="p-1.5 rounded-lg text-slate-600 dark:text-slate-300 hover:bg-white dark:hover:bg-slate-900 disabled:opacity-35 disabled:pointer-events-none active:scale-90 transition-all"
-                >
-                  <ChevronRight className="w-4 h-4" />
-                </button>
-              </div>
-            )}
+          {/* Row 2: meta on the left, actions on the right */}
+          <div className="mt-2 flex items-center justify-between gap-2">
+            <p className="min-w-0 truncate whitespace-nowrap text-xs text-slate-500 dark:text-slate-400">
+              {formatBytes(activeItem.size)} · {formatDateTime(activeItem.mtime, i18n.language)}
+            </p>
 
-            {(category === 'markdown' || category === 'html') && (
-              <div className="inline-flex p-0.5 rounded-xl bg-slate-200/70 dark:bg-slate-800">
-                <button
-                  type="button"
-                  onClick={() => setMdMode('rendered')}
-                  className={`inline-flex items-center gap-1 px-2.5 py-1 rounded-lg text-xs font-medium active:scale-95 transition-all ${
-                    mdMode === 'rendered'
-                      ? 'bg-white dark:bg-slate-900 text-indigo-600 dark:text-indigo-400 shadow-sm'
-                      : 'text-slate-600 dark:text-slate-400'
-                  }`}
-                >
-                  <BookOpen className="w-3.5 h-3.5" />
-                  <span className="hidden sm:inline">
-                    {category === 'html' ? t('preview.htmlRendered') : t('preview.markdownRendered')}
-                  </span>
-                </button>
-                <button
-                  type="button"
-                  onClick={() => setMdMode('source')}
-                  className={`inline-flex items-center gap-1 px-2.5 py-1 rounded-lg text-xs font-medium active:scale-95 transition-all ${
-                    mdMode === 'source'
-                      ? 'bg-white dark:bg-slate-900 text-indigo-600 dark:text-indigo-400 shadow-sm'
-                      : 'text-slate-600 dark:text-slate-400'
-                  }`}
-                >
-                  <Code className="w-3.5 h-3.5" />
-                  <span className="hidden sm:inline">
-                    {category === 'html' ? t('preview.htmlSource') : t('preview.markdownSource')}
-                  </span>
-                </button>
-              </div>
-            )}
+            <div className="flex items-center gap-1 sm:gap-1.5 shrink-0">
+              {(hasPrev || hasNext) && (
+                <div className="inline-flex items-center p-0.5 rounded-xl bg-slate-100 dark:bg-slate-800 border border-slate-200/60 dark:border-slate-700/60">
+                  <button
+                    type="button"
+                    disabled={!hasPrev}
+                    onClick={onPrev}
+                    title={t('preview.prevFile')}
+                    aria-label={t('preview.prevFile')}
+                    className="p-1.5 rounded-lg text-slate-600 dark:text-slate-300 hover:bg-white dark:hover:bg-slate-900 disabled:opacity-35 disabled:pointer-events-none active:scale-90 transition-all"
+                  >
+                    <ChevronLeft className="w-4 h-4" />
+                  </button>
+                  <button
+                    type="button"
+                    disabled={!hasNext}
+                    onClick={onNext}
+                    title={t('preview.nextFile')}
+                    aria-label={t('preview.nextFile')}
+                    className="p-1.5 rounded-lg text-slate-600 dark:text-slate-300 hover:bg-white dark:hover:bg-slate-900 disabled:opacity-35 disabled:pointer-events-none active:scale-90 transition-all"
+                  >
+                    <ChevronRight className="w-4 h-4" />
+                  </button>
+                </div>
+              )}
 
-            {category === 'audio' && onMinimizeAudio && (
+              {(category === 'markdown' || category === 'html') && (
+                <div className="inline-flex p-0.5 rounded-xl bg-slate-200/70 dark:bg-slate-800">
+                  <button
+                    type="button"
+                    onClick={() => setMdMode('rendered')}
+                    className={`inline-flex items-center gap-1 px-2.5 py-1 rounded-lg text-xs font-medium active:scale-95 transition-all ${
+                      mdMode === 'rendered'
+                        ? 'bg-white dark:bg-slate-900 text-indigo-600 dark:text-indigo-400 shadow-sm'
+                        : 'text-slate-600 dark:text-slate-400'
+                    }`}
+                  >
+                    <BookOpen className="w-3.5 h-3.5" />
+                    <span className="hidden sm:inline">
+                      {category === 'html' ? t('preview.htmlRendered') : t('preview.markdownRendered')}
+                    </span>
+                  </button>
+                  <button
+                    type="button"
+                    onClick={() => setMdMode('source')}
+                    className={`inline-flex items-center gap-1 px-2.5 py-1 rounded-lg text-xs font-medium active:scale-95 transition-all ${
+                      mdMode === 'source'
+                        ? 'bg-white dark:bg-slate-900 text-indigo-600 dark:text-indigo-400 shadow-sm'
+                        : 'text-slate-600 dark:text-slate-400'
+                    }`}
+                  >
+                    <Code className="w-3.5 h-3.5" />
+                    <span className="hidden sm:inline">
+                      {category === 'html' ? t('preview.htmlSource') : t('preview.markdownSource')}
+                    </span>
+                  </button>
+                </div>
+              )}
+
+              {category === 'audio' && onMinimizeAudio && (
+                <button
+                  type="button"
+                  onClick={handleMinimizeToAudioPlayer}
+                  title={t('preview.minimizeToPlayer')}
+                  className="inline-flex items-center gap-1.5 p-2 sm:px-2.5 sm:py-1.5 rounded-xl text-xs font-medium bg-indigo-500/10 text-indigo-600 dark:text-indigo-400 border border-indigo-500/20 hover:bg-indigo-500/20 active:scale-95 transition-all"
+                >
+                  <Minimize2 className="w-3.5 h-3.5" />
+                  <span className="hidden lg:inline">{t('preview.minimizeToPlayer')}</span>
+                </button>
+              )}
+
               <button
                 type="button"
-                onClick={handleMinimizeToAudioPlayer}
-                title={t('preview.minimizeToPlayer')}
-                className="inline-flex items-center gap-1.5 p-2 sm:px-2.5 sm:py-1.5 rounded-xl text-xs font-medium bg-indigo-500/10 text-indigo-600 dark:text-indigo-400 border border-indigo-500/20 hover:bg-indigo-500/20 active:scale-95 transition-all"
+                onClick={handleCopy}
+                title={t('preview.copyDirectLink')}
+                className="inline-flex items-center justify-center gap-1.5 p-1.5 sm:p-2 sm:px-3 sm:py-1.5 rounded-xl text-xs font-medium bg-slate-100 hover:bg-slate-200 dark:bg-slate-800 dark:hover:bg-slate-700 text-slate-700 dark:text-slate-200 active:scale-95 transition-all"
               >
-                <Minimize2 className="w-3.5 h-3.5" />
-                <span className="hidden lg:inline">{t('preview.minimizeToPlayer')}</span>
+                {copied ? (
+                  <Check className="w-3.5 h-3.5 text-emerald-500" />
+                ) : (
+                  <Link2 className="w-3.5 h-3.5" />
+                )}
+                <span className="hidden md:inline">{t('preview.copyDirectLink')}</span>
               </button>
-            )}
 
-            <button
-              type="button"
-              onClick={handleCopy}
-              title={t('preview.copyDirectLink')}
-              className="inline-flex items-center justify-center gap-1.5 p-1.5 sm:p-2 sm:px-3 sm:py-1.5 rounded-xl text-xs font-medium bg-slate-100 hover:bg-slate-200 dark:bg-slate-800 dark:hover:bg-slate-700 text-slate-700 dark:text-slate-200 active:scale-95 transition-all"
-            >
-              {copied ? (
-                <Check className="w-3.5 h-3.5 text-emerald-500" />
-              ) : (
-                <Link2 className="w-3.5 h-3.5" />
-              )}
-              <span className="hidden md:inline">{t('preview.copyDirectLink')}</span>
-            </button>
-
-            <button
-              type="button"
-              onClick={() => onDownload(activeItem)}
-              title={t('preview.downloadRaw')}
-              className="inline-flex items-center justify-center gap-1.5 p-1.5 sm:p-2 sm:px-3 sm:py-1.5 rounded-xl text-xs font-semibold bg-indigo-600 hover:bg-indigo-500 text-white shadow-sm active:scale-95 transition-all"
-            >
-              <Download className="w-3.5 h-3.5" />
-              <span className="hidden md:inline">{t('preview.downloadRaw')}</span>
-            </button>
-
-            {!isDemoMode && (
-              <a
-                href={activeUrl}
-                target="_blank"
-                rel="noopener noreferrer"
-                title={t('preview.openInNewTab')}
-                className="hidden sm:block p-2 rounded-xl text-slate-500 hover:text-slate-800 dark:text-slate-400 dark:hover:text-slate-200 hover:bg-slate-100 dark:hover:bg-slate-800 active:scale-90 transition-all"
+              <button
+                type="button"
+                onClick={() => onDownload(activeItem)}
+                title={t('preview.downloadRaw')}
+                className="inline-flex items-center justify-center gap-1.5 p-1.5 sm:p-2 sm:px-3 sm:py-1.5 rounded-xl text-xs font-semibold bg-indigo-600 hover:bg-indigo-500 text-white shadow-sm active:scale-95 transition-all"
               >
-                <ExternalLink className="w-4 h-4" />
-              </a>
-            )}
+                <Download className="w-3.5 h-3.5" />
+                <span className="hidden md:inline">{t('preview.downloadRaw')}</span>
+              </button>
 
-            <button
-              type="button"
-              onClick={handleCloseOrMinimize}
-              title={t('preview.close')}
-              className="p-2 rounded-xl text-slate-500 hover:text-slate-900 dark:text-slate-400 dark:hover:text-white hover:bg-slate-100 dark:hover:bg-slate-800 active:scale-90 transition-all"
-            >
-              <X className="w-4 h-4" />
-            </button>
+              {!isDemoMode && (
+                <a
+                  href={activeUrl}
+                  target="_blank"
+                  rel="noopener noreferrer"
+                  title={t('preview.openInNewTab')}
+                  className="p-2 rounded-xl text-slate-500 hover:text-slate-800 dark:text-slate-400 dark:hover:text-slate-200 hover:bg-slate-100 dark:hover:bg-slate-800 active:scale-90 transition-all"
+                >
+                  <ExternalLink className="w-4 h-4" />
+                </a>
+              )}
+
+              <button
+                type="button"
+                onClick={handleCloseOrMinimize}
+                title={t('preview.close')}
+                className="p-2 rounded-xl text-slate-500 hover:text-slate-900 dark:text-slate-400 dark:hover:text-white hover:bg-slate-100 dark:hover:bg-slate-800 active:scale-90 transition-all"
+              >
+                <X className="w-4 h-4" />
+              </button>
+            </div>
           </div>
         </div>
 
