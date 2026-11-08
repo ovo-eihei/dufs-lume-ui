@@ -2,13 +2,13 @@
 
 本文档整理了 **dufs-lume-ui** 在生产环境配合 [Dufs (`sigoden/dufs`)](https://github.com/sigoden/dufs)、[Caddy `forward_auth`](https://caddyserver.com/docs/caddyfile/directives/forward_auth) 与 [TinyAuth](https://tinyauth.app/docs/community/caddy/) 部署时的扩展接口方案、三种监听模式理论性能对比，以及运维实测避坑指南。
 
-> **v1.3.0 变更**：`/__lume__/disk` → **`/__lume__/info`**（它返回的早已不只是磁盘水位），并新增 **`/__lume__/thumb`** 缩略图端点。**同一个脚本、同一个 socket 同时服务这两条路由**，按请求行分流。旧名 `/__lume__/disk` 已彻底废弃（前端拿到 404 会自动回退 `GET /?simple` 探登录态，功能不炸，只是没有磁盘水位与能力位）。
+> `/__lume__/info` 与 `/__lume__/thumb` 由**同一个脚本、同一个监听**服务，按请求行分流；前端只用这两条扩展路由，其余全部走 Dufs 原生接口。
 
 ---
 
-## 1. 为什么用 `/__lume__/info` 实时脚本取代落盘文件？
+## 1. `/__lume__/info` 为什么是实时脚本
 
-1. **零落盘文件污染**：不在 Dufs 数据目录写入任何隐藏文件（如 `.lume-disk.json`），保持网盘数据目录、备份与同步任务绝对干净。
+**数据目录零污染**：不在 Dufs 数据目录写入任何文件，网盘目录、备份与同步任务保持干净。
 2. **一次请求完成「登录态探测 + 磁盘空间读取 + 服务端能力发现」**：
    - `/__lume__/info` 部署在 Caddy 的 `@gated` 鉴权块之后；
    - **未登录访客**打开页面时，前端请求 `GET /__lume__/info` 在网关层即被 `302/401` 拦截（**根本不会触发脚本执行**），前端据此判定为未登录访客，自动隐藏上传/新建/删除入口并将浏览根目录锁定在 `/share/`；
@@ -24,10 +24,10 @@
    }
    ```
    - **只报两个数**：`free_bytes` = 文件系统剩余可用（dufs 没有配额概念，"这个目录还能写多少"就等于它），`data_bytes` = 数据根自身占用（`du -sk` × 1024，默认输出）。
-   - ⚠ **不再输出 `total_bytes`/`used_bytes`**：那是整个分区的占用（含系统与别的软件），与网盘内容无关 —— 实测分区 11.4/30 GiB=38% 而数据根只有 1.42 GiB，显示百分比条会让人以为网盘占了 38%。前端告警改用绝对阈值（剩余 < 1 GiB）。
+   **没有 `total_bytes`/`used_bytes`**：那两项反映整个分区的占用（含操作系统与别的软件），与网盘内容无关 —— 分区用掉 38% 而数据根只占其中很小一部分是常态，画成百分比进度条会让人误以为网盘占了 38%。前端告警用绝对阈值（剩余 < 1 GiB）。
    - `thumbs` 是**能力位**：系统里没有图像工具链时为 `false`；装了 `libvips-tools`（或 ImageMagick）后自动变成 `{"enabled":true,"widths":[128,256,512]}`，**无需改任何配置**。
-   - **装 `libvips-tools` 后即为 enabled**（Debian 12 = `8.14.x`，走 `THUMB_TOOL=vips` 分支；注意 libvips 只拖库、不提供 `convert`/`magick`/`ffmpeg`/`cwebp` CLI —— libvips 只拖进 `libmagickcore`，不带 CLI）。
-   - 出图实测（真实数据根 + 真实 vips）：`share/Gemini_*.jpg` 1,423,169 B → **512×512 / 24,137 B**；`share/logo.png` 原图 **207×208**，请求 `w=200` 收敛到 256 档，`--size=256x256>` 的 `>` 语义**不放大** ⇒ 出图仍 207×208（11,925 B）。同参数第二次请求命中缓存、不再调工具链。
+   装了 `libvips-tools` 即为 enabled（Debian 12 = `8.14.x`，走 `THUMB_TOOL=vips` 分支）。libvips 与 ImageMagick 是两套独立工具链：只装 libvips 时系统里不会有 `convert`/`magick`/`cwebp` 这些 CLI。
+   出图行为：`a.jpg` 1,423,169 B → **512×512 / 24,137 B**；`logo.png` 原图 **207×208**，请求 `w=200` 收敛到 256 档，而 `--size=256x256>` 的 `>` 语义**不放大** ⇒ 出图仍是 207×208。同参数第二次请求命中缓存、不再调用工具链。
 
 ---
 
@@ -58,7 +58,7 @@
 2. **追求 0 常驻进程、宿主机原生部署**：选 **方案 B (`systemd.socket`)**。平时 `ps aux` 中没有任何额外常驻进程，单次请求多出的几毫秒对人类完全无感，且**零新依赖**。
 3. **`df` 与 `du` 的开销（实测，不是推测）**：
    - `df -P -k` 只读一次超级块（`statfs`），**< 0.2 ms**，与磁盘大小无关。
-   - `du -sk` 要递归遍历 inode：数据根（12 文件）**0.002 s**；`/tmp` 造 **2 万文件 0.054 s** ⇒ 每请求跑一次完全可接受，所以 `data_bytes` **默认输出**，原先的 `ENABLE_DU_DATA_BYTES` 开关已删。文件数真到数十万级时再谈缓存。
+   `du -sk` 要递归遍历 inode：数据根 12 个文件 **0.002 s**；造 2 万个文件 **0.054 s** ⇒ 每请求跑一次完全可接受，所以 `data_bytes` **默认输出**。文件数到数十万级时才需要考虑缓存。
    - ⚠ 用 `-sk` 而不是 `-sb`：busybox(alpine) 的 `du` 没有 `-b`；`df` 同理不用 GNU 的 `-B1/--output`，否则在 busybox 上直接回 usage。乘 1024 交给 shell 算术，**别在 awk 里乘**（mawk 按 `%g` 输出成 `3.16728e+10`，既不是合法 JSON 整数又丢精度）。
 
 ---
@@ -95,7 +95,6 @@ MemoryMax=192M
 #   strict 把整个文件系统层级挂只读，**/run 也包括** ⇒ socat bind() 报
 #   `E bind(5, {AF=1 "/run/lume-info.sock"}): Read-only file system`，服务卡 activating (auto-restart)。
 #   ReadWritePaths=/var/lib/lume 救不了（那是另一个路径）。full = /usr /boot /efi /etc 只读，/run 与 /var 可写。
-#   也没选 RuntimeDirectory= —— 那会把路径变成 /run/lume-info/…，要连带改 Caddyfile 与本文档。
 ProtectSystem=full
 NoNewPrivileges=yes
 PrivateTmp=yes
@@ -112,7 +111,7 @@ sudo systemctl daemon-reload && sudo systemctl enable --now lume-info-api.servic
 sudo mkdir -p /var/lib/lume/thumbs && sudo chown -R root:root /var/lib/lume && sudo chmod 0750 /var/lib/lume
 ```
 
-> 方案 B（`systemd.socket` + `Accept=yes` + `StandardInput/Output=socket`，0 常驻进程、无需 `socat`）与方案 C（TCP 端口）的配置见本节末尾的旧版说明；**换方案只需换监听方式，脚本与 Caddy 路由不动**。
+> 方案 B（`systemd.socket` + `Accept=yes` + `StandardInput/Output=socket`，0 常驻进程、无需 `socat`）与方案 C（TCP 端口）的差别只在监听方式：**脚本与 Caddy 路由都不用动**。
 
 ---
 
@@ -138,7 +137,7 @@ sudo mkdir -p /var/lib/lume/thumbs && sudo chown -R root:root /var/lib/lume && s
 
 **缓存**：`THUMB_CACHE_DIR`（默认 `/var/lib/lume/thumbs`，**在数据根之外**，不污染网盘），键 = `真实路径|mtime|size|宽度` 的 cksum ⇒ 文件一改自动换键，无需清理逻辑；同一张同一档第二次请求**不再调用工具链**（实测生成次数 2 次 / 请求 4 次）。
 
-**前端如何用它（v1.3.0 的三态偏好）**：
+**前端如何用它（三态偏好）**：
 
 - 偏好存在 `localStorage['dufs_lume_thumbs']`，取值 `auto`（缺省 = 用户从没设置过）/ `on` / `off`；
 - `auto` ⇒ **完全跟随能力位**：`thumbs.enabled` 为真才显示，且走服务端缩放；为假就干脆不显示；
@@ -150,7 +149,7 @@ sudo mkdir -p /var/lib/lume/thumbs && sudo chown -R root:root /var/lib/lume && s
 
 ---
 
-## 6. Caddyfile 需要配套的三处（v1.3.0）
+## 6. Caddyfile 需要配套的三处
 
 ### (1) 扩展 API：一个 socket 服务两条路由
 
@@ -171,17 +170,17 @@ sudo mkdir -p /var/lib/lume/thumbs && sudo chown -R root:root /var/lib/lume && s
 
 `@gated` 的语义是「非 `/share*` 且非 `/__dufs_v*` 都要过 forward_auth」，所以 `/__lume__/*` 天然落在鉴权之后 —— 这正是「未登录探测被 302 弹走 ⇒ 前端判定为访客」的机制，**不要**把它挪到鉴权之外。
 
-### (2) 未登录访问 `/` ⇒ 自动落到公开区（F3a）
+### (2) 未登录访问 `/` ⇒ 自动落到公开区
 
 **语义要求只有两条**：
 
 - 未登录 + `GET /`（不带 `?login`）⇒ **302 `/share/`**
-- 未登录 + `GET /?login=1` ⇒ **照旧弹认证中心**（这是前端 v1.3.0 登录按钮的新指向）
+- 未登录 + `GET /?login=1` ⇒ **照旧弹认证中心**（前端登录按钮就指这个查询串）
 - 已登录 + `GET /` ⇒ 正常返回前端 HTML
 
 Caddy 没有"未登录"这个匹配条件（登录态只有 tinyauth 知道）。**下面这个形状是实测可用的版本**。
 2. **`?login` 必须留在鉴权之内** —— 它是唯一的登录入口，被豁免掉就再也登不进来（前端 `handleLoginClick` 指 `?login=1`）。写法用的是 `not query login=*`（**任意值**都留在鉴权内），比只匹配 `login=1` 稳。
-3. 深链范围（门禁区路径如 `/easyrc.7z`、`/test/` 未登录时是否也跳 `/share/`）**用户尚未拍板** ⇒ 现状保持（302 到登录页），只处理根 `/`。
+3. 深链范围（门禁区路径未登录时是否也跳 `/share/`）本文不处理：下面的写法只管根 `/`，其余路径照旧 302 到认证中心。
 
 ⚠ 两个容易踩的坑：
 
@@ -189,7 +188,7 @@ Caddy 没有"未登录"这个匹配条件（登录态只有 tinyauth 知道）�
 - **`redir /share/ 302` 会被静默编错**（Caddy v2.11.7，`adapt` 现场）：渲染成 `static_response{Location:"302"}` + 一条隐藏的 `match{path:["/share/"]}` —— **不报错但完全错**（`redir` 按参数数量判语义，两参数 = `(from, to)`）。`redir location /share/ 302` 报 `Not a supported redir code type`（本版本没有 `location` 关键字），单参数 `redir /share/` 报 `wrong argument count`。可用写法是 **`redir "{scheme}://{host}/share/" 302`**（代价：Location 是绝对 URL 而非相对）；想要相对形式可用 `redir / /share/ 302`，但那会多一条隐藏 path 匹配，将来放宽 `@rootLanding` 范围时会静默失效。
 - 顺带：验证配置用 **`runuser -u caddy --preserve-environment -- caddy validate`**，别用 root 跑（root 会把缺失的日志文件建成 `root:root 0600`）。
 
-### (3) 公开区照常反代 dufs（现状不变）
+### (3) 公开区照常反代 dufs
 
 ```caddyfile
     handle {
@@ -209,9 +208,9 @@ Caddy 没有"未登录"这个匹配条件（登录态只有 tinyauth 知道）�
     }
 ```
 
-⚠ 这条路由一旦开在鉴权之外，`root=share` 就是唯一防线：**必须保证调用方不能自己覆盖成 `root=full`**（`set_query` 是覆盖语义，`replace_query` 只替换已存在的参数 —— 前端 v1.3.0 在匿名态本来就会带 `root=share`，两种写法都对齐，但只有覆盖语义是安全的）。不确定就先别开，让匿名者保持"无缩略图"。
+（`set_query` 是覆盖语义，`replace_query` 只替换已存在的参数 —— 前端在匿名态本来就会带 `root=share`，但只有覆盖语义是安全的）
 
-## 7. 发布与运维实测避坑指南
+## 7. 部署与运维注意事项
 
 1. **资源前缀不是 `/assets/`**：Dufs 把 `--assets` 目录挂在 `/__dufs_v<版本>__/` 下（`/assets/` 直接 404），升级 Dufs 时版本号前缀会自动变化。因此源码中只使用 `__ASSETS_PREFIX__` 占位符，**绝不硬编码版本前缀**；Caddyfile 中使用 `not path /__dufs_v*` 通配豁免。
 2. **更新前端产物后必须重启 Dufs**：Dufs 的 `Server::new()` 在启动时一次性执行 `read_to_string(assets/index.html)` 缓存在内存中（`src/server.rs:93`），而 JS/CSS 是每次请求直读磁盘。若只覆盖 `dist/*` 而不重启 Dufs，生产环境的 HTML 仍会引用上一版的 hashed JS/CSS 文件名。
@@ -247,6 +246,6 @@ for q in \
 done
 ```
 
-⚠ 上面这个循环**必须用 `printf '%b' "GET $q ..."`**，不能写 `printf 'GET %s ...' "$q"`：查询串里的 `%2F` 会被 `printf` 当成格式说明符吃掉（`%2F` → 宽度 2 的 `F` 转换），路径直接被破坏成 400。这个坑实测踩过。
+⚠ 上面这个循环**必须用 `printf '%b' "GET $q ..."`**，不能写 `printf 'GET %s ...' "$q"`：查询串里的 `%2F` 会被 `printf` 当成格式说明符吃掉（`%2F` → 宽度 2 的 `F` 转换），路径直接被破坏成 400。
 
-> 这 7 条闸门用例的自测法：先用假 `vipsthumbnail`（固定输出）过一遍，再在真实数据根 + 真实 vips 上复测（`root=share` 打 `/test/` ⇒ 403、`..` ⇒ 403、`.7z` ⇒ 415、`%0A` ⇒ 400、未知路由 ⇒ 404）。真实缩放质量已由出图尺寸/字节验证（见 §1）。
+> 这 7 条闸门用例可以脱离 socket 单测：先用假 `vipsthumbnail`（固定输出）过一遍形状，再在装了真图像工具的机器上复测（`root=share` 打门禁区路径 ⇒ 403、`..` ⇒ 403、非图像扩展名 ⇒ 415、`%0A` ⇒ 400、未知路由 ⇒ 404）。缩放质量由出图尺寸与字节数验证（见 §1）。

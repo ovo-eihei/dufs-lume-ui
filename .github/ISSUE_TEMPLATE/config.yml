@@ -1,0 +1,8 @@
+blank_issues_enabled: true
+contact_links:
+  - name: 安全问题的私密报告入口与本项目的能力边界
+    url: https://github.com/ovo-eihei/dufs-lume-ui/blob/main/docs/ai-development-notes.md
+    about: 请先读第 4 与第 6 节 —— 鉴权由 Dufs 与反向代理负责，安全问题请勿在 issue 里公开描述。
+  - name: Dufs 本身的功能（配额、逐目录权限、分享链接与过期…）
+    url: https://github.com/sigoden/dufs/issues
+    about: 本项目只是 Dufs 的 --assets 换皮前端，Dufs 没有的能力请提到上游。

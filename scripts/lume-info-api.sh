@@ -65,7 +65,7 @@ thumbs_cap() {
 # ---------- GET /__lume__/info ----------
 serve_info() {
   # 只报两个数：文件系统剩余可用（= 这个目录还能写多少）与数据根自身占用。
-  # 不再输出 total_bytes/used_bytes —— 那是整个分区的占用（含系统与别的软件），与网盘内容
+  # 不输出 total_bytes/used_bytes —— 那两项反映整个分区的占用（含系统与别的软件），与网盘内容无关
   # 无关（实测：分区 11.4/30 GiB=38%，数据根只有 1.42 GiB），百分比条会误导。
   # 只用 POSIX df：GNU 的 -B1/--output 在 busybox(alpine) 上直接回空/usage ⇒ 基座不挑发行版。
   # -P -k 给 1024 块；乘 1024 交给 shell 算术，**不要**在 awk 里乘 —— mawk 会按 %g 输出
@@ -74,7 +74,7 @@ serve_info() {
   FREE=$(( ${4:-0} * 1024 ))
   NOW=$(date -Iseconds 2>/dev/null || date +"%Y-%m-%dT%H:%M:%S%z")
   CAP=$(thumbs_cap)
-  # du 默认执行（实测：数据根 0.002 s；/tmp 造 2 万文件 0.054 s）⇒ 已删掉 ENABLE_DU_DATA_BYTES 开关。
+  # du -sk 每请求跑一次（实测数据根 0.002 s / 2 万文件 0.054 s）⇒ 默认输出，不做开关。
   KB=$(du -sk "$ROOT" 2>/dev/null | cut -f1)             # busybox du 没有 -b ⇒ 用 -sk 再乘 1024
   DATA=$(( ${KB:-0} * 1024 ))
   BODY=$(printf '{"generated_at":"%s","path":"%s","free_bytes":%s,"data_bytes":%s,"thumbs":%s}' \
