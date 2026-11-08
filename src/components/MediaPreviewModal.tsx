@@ -205,7 +205,7 @@ const SyntaxHighlightedCode: React.FC<{ code: string }> = ({ code }) => {
   }, [code]);
 
   return (
-    <div className="w-full h-full flex-1 overflow-auto p-4 sm:p-6 bg-slate-50/50 dark:bg-slate-950/70 custom-scroll">
+    <div className="w-full flex-1 min-h-0 overflow-auto p-4 sm:p-6 bg-slate-50/50 dark:bg-slate-950/70 custom-scroll">
       <table className="w-full border-collapse font-mono text-xs leading-[1.25]">
         <tbody>
           {lines.map((lineTokens, idx) => (
@@ -469,7 +469,7 @@ export const MediaPreviewModal: React.FC<MediaPreviewModalProps> = ({
       onClick={handleCloseOrMinimize}
     >
       <div
-        className={`relative w-full max-w-5xl max-h-[92vh] sm:max-h-[90vh] flex flex-col rounded-2xl bg-white dark:bg-slate-900 border border-slate-200 dark:border-slate-800 shadow-2xl overflow-hidden ${
+        className={`relative w-full max-w-5xl h-[92dvh] max-h-[92vh] sm:h-[90dvh] sm:max-h-[90vh] flex flex-col rounded-2xl bg-white dark:bg-slate-900 border border-slate-200 dark:border-slate-800 shadow-2xl overflow-hidden ${
           isClosing ? 'animate-modalOut' : 'animate-modalIn'
         }`}
         onClick={(e) => e.stopPropagation()}
@@ -618,7 +618,7 @@ export const MediaPreviewModal: React.FC<MediaPreviewModalProps> = ({
         </div>
 
         {/* Modal Body */}
-        <div className="flex-1 overflow-y-auto min-h-[320px] flex flex-col bg-white dark:bg-slate-900">
+        <div className="flex-1 min-h-0 overflow-y-auto flex flex-col bg-white dark:bg-slate-900">
           {loading ? (
             <div className="flex-1 flex flex-col items-center justify-center py-20 text-slate-500">
               <Loader2 className="w-7 h-7 animate-spin text-indigo-500 mb-3" />
@@ -631,24 +631,24 @@ export const MediaPreviewModal: React.FC<MediaPreviewModalProps> = ({
               <p className="text-xs text-slate-400 mt-1">{loadError}</p>
             </div>
           ) : category === 'image' ? (
-            <div className="flex-1 flex items-center justify-center p-6 bg-slate-950/20 dark:bg-slate-950/50">
+            <div className="flex-1 min-h-0 flex items-center justify-center p-6 bg-slate-950/20 dark:bg-slate-950/50">
               <img
                 src={resolvedMediaSrc}
                 alt={activeItem.name}
-                className="max-w-full max-h-[72vh] h-auto rounded-xl shadow-md object-contain animate-fadeIn"
+                className="max-w-full max-h-full h-auto rounded-xl shadow-md object-contain animate-fadeIn"
               />
             </div>
           ) : category === 'video' ? (
-            <div className="flex-1 flex items-center justify-center bg-black">
+            <div className="flex-1 min-h-0 flex items-center justify-center bg-black">
               <video
                 src={resolvedMediaSrc}
                 controls
                 autoPlay
-                className="max-w-full max-h-[75vh] w-full"
+                className="max-w-full max-h-full w-full"
               />
             </div>
           ) : category === 'audio' ? (
-            <div className="flex-1 flex flex-col items-center justify-center py-14 px-6 bg-slate-50/50 dark:bg-slate-950/50">
+            <div className="flex-1 min-h-0 flex flex-col items-center justify-center py-14 px-6 bg-slate-50/50 dark:bg-slate-950/50">
               <div className="w-20 h-20 rounded-3xl bg-gradient-to-tr from-pink-500 to-indigo-500 flex items-center justify-center text-white shadow-lg mb-5 animate-pulse">
                 <FileIconBadge item={activeItem} size="lg" />
               </div>
@@ -668,9 +668,9 @@ export const MediaPreviewModal: React.FC<MediaPreviewModalProps> = ({
               )}
             </div>
           ) : category === 'pdf' ? (
-            <div className="flex-1 min-h-[70vh] bg-white dark:bg-slate-900">
+            <div className="flex-1 min-h-0 flex flex-col bg-white dark:bg-slate-900">
               {isDemoMode ? (
-                <div className="h-[65vh] flex flex-col items-center justify-center p-8 text-center bg-slate-50/50 dark:bg-slate-950/50">
+                <div className="h-full flex flex-col items-center justify-center p-8 text-center bg-slate-50/50 dark:bg-slate-950/50">
                   <FileIconBadge item={activeItem} size="lg" />
                   <h4 className="text-base font-semibold text-slate-900 dark:text-white mt-4">
                     {activeItem.name}
@@ -684,7 +684,7 @@ export const MediaPreviewModal: React.FC<MediaPreviewModalProps> = ({
                   </p>
                 </div>
               ) : (
-                <iframe src={activeUrl} title={activeItem.name} className="w-full h-[75vh] border-0" />
+                <iframe src={activeUrl} title={activeItem.name} className="w-full flex-1 min-h-0 border-0" />
               )}
             </div>
           ) : category === 'markdown' ? (
@@ -700,7 +700,7 @@ export const MediaPreviewModal: React.FC<MediaPreviewModalProps> = ({
             )
           ) : category === 'html' ? (
             mdMode === 'rendered' ? (
-              <div className="flex-1 flex flex-col bg-white dark:bg-slate-900 animate-fadeIn">
+              <div className="flex-1 min-h-0 flex flex-col bg-white dark:bg-slate-900 animate-fadeIn">
                 {htmlSandbox ? (
                   <>
                     <SandboxHintBar onDisable={onRequestDisableSandbox ?? (() => {})} />
@@ -709,7 +709,7 @@ export const MediaPreviewModal: React.FC<MediaPreviewModalProps> = ({
                         title={activeItem.name}
                         srcDoc={textContent || activeItem.demoContent || ''}
                         sandbox="allow-scripts"
-                        className="w-full flex-1 min-h-[72vh] border-0 bg-white"
+                        className="w-full flex-1 min-h-0 border-0 bg-white"
                       />
                     ) : (
                       <div className="flex-1 flex flex-col items-center justify-center py-20 text-slate-500">
@@ -723,7 +723,7 @@ export const MediaPreviewModal: React.FC<MediaPreviewModalProps> = ({
                     title={activeItem.name}
                     src={isDemoMode ? undefined : activeUrl}
                     srcDoc={isDemoMode ? textContent || activeItem.demoContent || '' : undefined}
-                    className="w-full flex-1 min-h-[72vh] border-0 bg-white"
+                    className="w-full flex-1 min-h-0 border-0 bg-white"
                   />
                 )}
               </div>
@@ -733,7 +733,7 @@ export const MediaPreviewModal: React.FC<MediaPreviewModalProps> = ({
           ) : category === 'text' ? (
             <SyntaxHighlightedCode code={textContent} />
           ) : (
-            <div className="flex-1 flex flex-col items-center justify-center py-16 text-center bg-slate-50/50 dark:bg-slate-950/50">
+            <div className="flex-1 min-h-0 flex flex-col items-center justify-center py-16 text-center bg-slate-50/50 dark:bg-slate-950/50">
               <FileIconBadge item={activeItem} size="lg" />
               <p className="text-sm text-slate-600 dark:text-slate-400 mt-4 max-w-md">
                 {t('preview.unsupported')}
