@@ -1,0 +1,9 @@
+node_modules
+dist
+dist-ssr
+.git
+.gitignore
+*.tsbuildinfo
+npm-debug.log*
+docker/.env
+docker/data

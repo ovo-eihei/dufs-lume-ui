@@ -1,0 +1,47 @@
+# 扩展 API 容器：socat 常驻监听，每请求起一个 lume-info-api.sh 进程
+#
+#   docker build -f docker/Dockerfile.api -t lume-info-api:local .
+#   docker build -f docker/Dockerfile.api --build-arg IMAGE_TOOL=none -t lume-info-api:noimg .
+#
+# IMAGE_TOOL：
+#   vips（默认，apk add vips-tools）→ 能力位 enabled:true，前端走服务端缩放图
+#   im  （apk add imagemagick）      → 同一分支的另一条命令
+#   none（不装任何图像工具）          → 能力位自动灭，前端退回「原图直出」，不报错
+#
+# 基座用 alpine：脚本只依赖 POSIX sh + busybox 就够（df -P / du -sk / stat -c / readlink -f
+# 全部实测通过），装完 vips 约 88 MB；不装 libheif（AVIF 不带），比 debian:12-slim 同配置小 4 倍。
+ARG BASE=alpine:3.22
+FROM ${BASE}
+
+ARG IMAGE_TOOL=vips
+RUN apk add --no-cache socat \
+ && case "$IMAGE_TOOL" in \
+      # alpine 把 IM 的解码器拆成子包：只装 imagemagick 时 JPEG 直接报
+      # "no decode delegate"（实测），所有 .jpg 缩略图默默变成 500 ⇒ 必须连带装上。
+      im)   apk add --no-cache imagemagick imagemagick-jpeg imagemagick-webp imagemagick-tiff ;; \
+      # AVIF/HEIF **不带**（默认不带）：alpine 的 vips 要额外装 libheif 才解得开
+      # .avif（实测不装就 FAIL，装了 88.2→124 MB），而数据根 12 个文件里 0 个 avif ⇒ 不为它
+      # 花 36 MB。BASE=debian:12-slim 那条路自带 heifload，不受这条影响。
+      vips) apk add --no-cache vips-tools ;; \
+      none) : ;; \
+      *) echo "IMAGE_TOOL 只能是 vips|im|none" >&2; exit 1 ;; \
+    esac \
+ && if [ "$IMAGE_TOOL" = im ]; then \
+       convert -list format | grep -q 'JPEG' || { echo "im 档缺 JPEG 解码器" >&2; exit 1; }; \
+     elif [ "$IMAGE_TOOL" = vips ]; then \
+       vips -l 2>/dev/null | grep -q jpegload || { echo "vips 档缺 JPEG 解码器" >&2; exit 1; }; \
+     fi
+
+COPY scripts/lume-info-api.sh /usr/local/sbin/lume-info-api.sh
+RUN chmod 0755 /usr/local/sbin/lume-info-api.sh
+
+ENV DUFS_SERVE_PATH=/data \
+    DUFS_ANON_PREFIX=/share \
+    THUMB_CACHE_DIR=/var/cache/lume-thumbs \
+    LUME_PORT=8090
+
+VOLUME /var/cache/lume-thumbs
+EXPOSE 8090
+
+# 只监听容器网络，不对宿主发布端口；数据根由 compose 以 :ro 挂进来
+CMD ["sh", "-c", "exec socat TCP-LISTEN:${LUME_PORT},bind=0.0.0.0,reuseaddr,fork EXEC:/usr/local/sbin/lume-info-api.sh,stderr"]

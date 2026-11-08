@@ -1,0 +1,29 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+  <head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <link rel="icon" type="image/svg+xml" href="./favicon.svg" />
+    <title>欸嘿 · 文件分享</title>
+    <script>
+      // Dufs 服务端运行时注入占位符：
+      window.__DUFS_RAW_INDEX_DATA__ = "__INDEX_DATA__";
+      window.__DUFS_ASSETS_PREFIX__ = "__ASSETS_PREFIX__";
+
+      // 首屏防闪烁 (Anti-FOUC)：未配置主题或配置为 'system' 时自动跟随系统 prefers-color-scheme
+      (function () {
+        try {
+          var savedTheme = localStorage.getItem('dufs_lume_theme') || 'system';
+          var sysDark = window.matchMedia && window.matchMedia('(prefers-color-scheme: dark)').matches;
+          var isDark = savedTheme === 'dark' || (savedTheme === 'system' && sysDark);
+          if (isDark) document.documentElement.classList.add('dark');
+          else document.documentElement.classList.remove('dark');
+        } catch (e) {}
+      })();
+    </script>
+  </head>
+  <body class="bg-slate-50 text-slate-900 dark:bg-slate-950 dark:text-slate-100 antialiased selection:bg-indigo-500 selection:text-white">
+    <div id="root"></div>
+    <script type="module" src="/src/main.tsx"></script>
+  </body>
+</html>

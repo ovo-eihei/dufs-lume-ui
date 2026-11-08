@@ -1,0 +1,70 @@
+# dufs + 换皮 UI + 扩展 API 的同源三件套（默认档：不带鉴权）
+#
+#   cd docker && cp .env.example .env &&编辑 DATA_DIR && docker compose up -d --build
+#
+# 只有两个必改项：DATA_DIR（你的文件在哪）和 LUME_HTTP_PORT（对外端口）。
+# 品牌、dufs 鉴权、缩略图后端都是可选项，留空即用内置默认。
+
+name: dufs-lume
+
+services:
+  dufs:
+    build:
+      context: ..
+      dockerfile: docker/Dockerfile.ui
+      args:
+        DUFS_VERSION: "${DUFS_VERSION:-v0.47.0}"
+    image: lume-server:local
+    restart: unless-stopped
+    volumes:
+      - ${DATA_DIR:-./data}:/data
+    # 品牌四项由 entrypoint 读；dufs 自己的开关不在这里逐个映射，而是整份 .env 透传：
+    # 里面写的 DUFS_* 直接进容器，dufs 认得每一个选项（要鉴权就加一行 DUFS_AUTH=...）。
+    # 这样上游加什么开关都不需要本仓库跟着改 compose，配置项也没多一层名字。
+    env_file:
+      - path: .env
+        required: false
+    environment:
+      # 钉死：服务路径就是挂载点 /data，不让 .env 里的同名变量把它指到别处去
+      DUFS_SERVE_PATH: /data
+    # 不对外发布：一切流量走 caddy，保证 /__lume__/* 与 UI 同源
+    expose:
+      - "5000"
+
+  lume-info-api:
+    build:
+      context: ..
+      dockerfile: docker/Dockerfile.api
+      args:
+        IMAGE_TOOL: "${IMAGE_TOOL:-vips}"
+    image: lume-info-api:local
+    restart: unless-stopped
+    volumes:
+      # 只读：info 只要 statfs，thumb 只要读原图，写权限一律不给
+      - ${DATA_DIR:-./data}:/data:ro
+      - lume-thumbs:/var/cache/lume-thumbs
+    environment:
+      DUFS_SERVE_PATH: /data
+      DUFS_ANON_PREFIX: "${LUME_ANON_PREFIX:-/share}"
+      ENABLE_DU_DATA_BYTES: "${ENABLE_DU_DATA_BYTES:-0}"
+    expose:
+      - "8090"
+
+  caddy:
+    image: caddy:2-alpine
+    restart: unless-stopped
+    ports:
+      # 默认只绑回环：想直接对外就改 .env 的 LUME_BIND=0.0.0.0（更推荐前面再挂一层 TLS）
+      - "${LUME_BIND:-127.0.0.1}:${LUME_HTTP_PORT:-8080}:80"
+    volumes:
+      - ./Caddyfile:/etc/caddy/Caddyfile:ro
+      - caddy-data:/data
+      - caddy-config:/config
+    depends_on:
+      - dufs
+      - lume-info-api
+
+volumes:
+  lume-thumbs:
+  caddy-data:
+  caddy-config:
