@@ -14,6 +14,7 @@ import {
 } from 'lucide-react';
 import { DufsPathItem, SortField, SortOrder, ViewMode } from '../types/dufs';
 import { ZipButton, ZipControls } from './ZipButton';
+import NameText from './NameText';
 import {
   formatBytes,
   formatDateTime,
@@ -374,7 +375,7 @@ export const FileExplorer: React.FC<FileExplorerProps> = ({
               key={item.name}
               data-item-index={idx}
               onClick={(e) => handleRowOrCardClick(e, item, idx)}
-              className={`group relative flex flex-col rounded-2xl border overflow-hidden transition-all duration-200 cursor-pointer select-none min-w-0 hover:-translate-y-0.5 hover:shadow-lg ${
+              className={`group relative flex flex-col rounded-2xl border overflow-hidden transition-all duration-200 cursor-pointer select-none no-callout min-w-0 hover:-translate-y-0.5 hover:shadow-lg ${
                 isSelected
                   ? 'bg-indigo-50/75 dark:bg-indigo-950/35 border-indigo-500 dark:border-indigo-500/80 ring-2 ring-indigo-500/30 shadow-md shadow-indigo-500/5'
                   : isFocused
@@ -408,12 +409,11 @@ export const FileExplorer: React.FC<FileExplorerProps> = ({
               )}
 
               <div className="mt-auto min-w-0 px-3.5 sm:px-4 pt-3 pb-3.5 sm:pb-4">
-                <h4
-                  className="font-medium text-sm text-slate-900 dark:text-slate-100 truncate group-hover:text-indigo-600 dark:group-hover:text-indigo-400 transition-colors"
-                  title={item.name}
-                >
-                  {item.name}
-                </h4>
+                <NameText
+                  as="h4"
+                  text={item.name}
+                  className="font-medium text-sm text-slate-900 dark:text-slate-100 group-hover:text-indigo-600 dark:group-hover:text-indigo-400 transition-colors"
+                />
                 <div className="flex items-center justify-between gap-2 text-xs text-slate-500 dark:text-slate-400 mt-1.5 font-mono">
                   <span className="shrink-0">{isDir ? t('file.folder') : formatBytes(item.size)}</span>
                   <span className="truncate">{formatDateTime(item.mtime, i18n.language)}</span>
@@ -510,7 +510,7 @@ export const FileExplorer: React.FC<FileExplorerProps> = ({
                 key={item.name}
                 data-item-index={idx}
                 onClick={(e) => handleRowOrCardClick(e, item, idx)}
-                className={`group transition-all duration-150 cursor-pointer select-none ${
+                className={`group transition-all duration-150 cursor-pointer select-none no-callout ${
                   isSelected
                     ? 'bg-indigo-50/75 dark:bg-indigo-950/35 ring-1 ring-inset ring-indigo-500/30'
                     : isFocused
@@ -545,12 +545,11 @@ export const FileExplorer: React.FC<FileExplorerProps> = ({
                       <FileIconBadge item={item} size="md" />
                     )}
                     <div className="min-w-0 flex-1">
-                      <p
-                        className="font-medium text-slate-900 dark:text-slate-100 truncate group-hover:text-indigo-600 dark:group-hover:text-indigo-400 transition-colors"
-                        title={item.name}
-                      >
-                        {item.name}
-                      </p>
+                      <NameText
+                        as="p"
+                        text={item.name}
+                        className="font-medium text-slate-900 dark:text-slate-100 group-hover:text-indigo-600 dark:group-hover:text-indigo-400 transition-colors"
+                      />
                       <p className="text-[11px] text-slate-400 dark:text-slate-500 sm:hidden mt-0.5 truncate font-mono">
                         {isDir ? t('file.folder') : formatBytes(item.size)} ·{' '}
                         {formatDateTime(item.mtime, i18n.language)}

@@ -149,3 +149,13 @@ html.dark ::-webkit-scrollbar-thumb:hover {
   -ms-overflow-style: none;
   scrollbar-width: none;
 }
+@layer base {
+  body {
+    @apply antialiased font-sans;
+  }
+}
+
+/* 长按文件名 = 显示全名气泡，不要系统的选中高亮/弹出菜单（iOS 光靠 user-select 拦不住） */
+.no-callout {
+  -webkit-touch-callout: none;
+}
