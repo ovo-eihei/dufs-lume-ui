@@ -498,31 +498,6 @@ export const FileExplorer: React.FC<FileExplorerProps> = ({
           </tr>
         </thead>
         <tbody className="divide-y divide-slate-200/60 dark:divide-slate-800/60 text-sm">
-          {!isRoot && (
-            <tr
-              onClick={onNavigateParent}
-              className="group hover:bg-slate-50/90 dark:hover:bg-slate-800/50 transition-colors cursor-pointer"
-            >
-              <td className="py-2.5 sm:py-3 pl-3 sm:pl-4 pr-0 w-10 align-middle" />
-              <td className="py-2.5 sm:py-3 pl-1.5 sm:pl-2 pr-2 min-w-0 align-middle">
-                <div className="flex items-center gap-2.5 sm:gap-3 min-w-0">
-                  <div className="w-9 h-9 rounded-xl bg-slate-100 dark:bg-slate-800 text-slate-500 dark:text-slate-400 flex items-center justify-center group-hover:bg-indigo-500/10 group-hover:text-indigo-500 active:scale-90 transition-all shrink-0">
-                    <CornerLeftUp className="w-4 h-4" />
-                  </div>
-                  <div className="min-w-0 truncate">
-                    <span className="font-medium text-slate-800 dark:text-slate-200">..</span>
-                    <span className="ml-2 text-xs text-slate-500 dark:text-slate-400">
-                      ({t('file.parentDir')})
-                    </span>
-                  </div>
-                </div>
-              </td>
-              <td className="py-2.5 sm:py-3 px-3 hidden sm:table-cell align-middle" />
-              <td className="py-2.5 sm:py-3 px-3 hidden md:table-cell align-middle" />
-              <td className="py-2.5 sm:py-3 pl-1 pr-2.5 sm:pr-4 text-right align-middle" />
-            </tr>
-          )}
-
           {visibleItems.map((item, idx) => {
             const isDir = isDirectory(item);
             const isCopied = copiedName === item.name;
