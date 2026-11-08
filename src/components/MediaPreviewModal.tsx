@@ -205,7 +205,7 @@ const SyntaxHighlightedCode: React.FC<{ code: string }> = ({ code }) => {
 
   return (
     <div className="w-full h-full flex-1 overflow-auto p-4 sm:p-6 bg-slate-50/50 dark:bg-slate-950/70 custom-scroll">
-      <table className="w-full border-collapse font-mono text-xs leading-6">
+      <table className="w-full border-collapse font-mono text-xs leading-[1.5]">
         <tbody>
           {lines.map((lineTokens, idx) => (
             <tr
@@ -353,6 +353,9 @@ export const MediaPreviewModal: React.FC<MediaPreviewModalProps> = ({
   const [loadError, setLoadError] = useState<string | null>(null);
   const [mdMode, setMdMode] = useState<'rendered' | 'source'>('rendered');
   const [copied, setCopied] = useState(false);
+  const nameRef = useRef<HTMLHeadingElement | null>(null);
+  const [nameTruncated, setNameTruncated] = useState(false);
+  const [nameHover, setNameHover] = useState(false);
   const audioRef = useRef<HTMLAudioElement | null>(null);
 
   const { rendered, isClosing } = useModalTransition(!!item, 160);
@@ -401,6 +404,21 @@ export const MediaPreviewModal: React.FC<MediaPreviewModalProps> = ({
         });
     }
   }, [activeItem, activeUrl, htmlSandbox]);
+
+  // Only offer the full-name bubble when the label really is ellipsized.
+  useEffect(() => {
+    const measure = () => {
+      const el = nameRef.current;
+      if (el) setNameTruncated(el.scrollWidth > el.clientWidth + 1);
+    };
+    measure();
+    window.addEventListener('resize', measure);
+    return () => window.removeEventListener('resize', measure);
+  }, [activeItem?.name]);
+
+  useEffect(() => {
+    setNameHover(false);
+  }, [activeItem?.name]);
 
   const resolvedMediaSrc = useMemo(() => {
     if (!activeItem) return '';
@@ -481,9 +499,14 @@ export const MediaPreviewModal: React.FC<MediaPreviewModalProps> = ({
               <FileIconBadge item={activeItem} size="sm" />
               <div className="min-w-0">
                 <h3
+                  ref={nameRef}
                   dir="auto"
-                  title={activeItem.name}
-                  className="truncate font-semibold text-sm sm:text-base text-slate-900 dark:text-white"
+                  onMouseEnter={() => setNameHover(true)}
+                  onMouseLeave={() => setNameHover(false)}
+                  onClick={() => nameTruncated && setNameHover((v) => !v)}
+                  className={`truncate font-semibold text-sm sm:text-base text-slate-900 dark:text-white ${
+                    nameTruncated ? 'cursor-help' : ''
+                  }`}
                 >
                   {activeItem.name}
                 </h3>
@@ -614,6 +637,15 @@ export const MediaPreviewModal: React.FC<MediaPreviewModalProps> = ({
           >
             <X className="w-4 h-4" />
           </button>
+
+          {/* Full-name bubble: only when the label is ellipsized */}
+          {nameTruncated && nameHover && (
+            <div className="pointer-events-none absolute left-3 right-3 top-full z-10 mt-1 rounded-xl border border-slate-200 bg-white/95 px-3 py-2 text-xs font-medium text-slate-800 shadow-lg backdrop-blur dark:border-slate-700 dark:bg-slate-800/95 dark:text-slate-100 sm:left-5 sm:right-5">
+              <span className="break-all" dir="auto">
+                {activeItem.name}
+              </span>
+            </div>
+          )}
         </div>
 
         {/* Modal Body */}
