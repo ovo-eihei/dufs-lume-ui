@@ -4,13 +4,18 @@
     <meta charset="UTF-8" />
     <meta name="viewport" content="width=device-width, initial-scale=1.0" />
     <link rel="icon" type="image/svg+xml" href="./favicon.svg" />
-    <title>欸嘿 · 文件分享</title>
+    <title>Dufs Lume</title>
     <script>
-      // Dufs 服务端运行时注入占位符：
+      // Dufs runtime injection placeholders:
       window.__DUFS_RAW_INDEX_DATA__ = "__INDEX_DATA__";
       window.__DUFS_ASSETS_PREFIX__ = "__ASSETS_PREFIX__";
+      // 品牌可选项：docker 部署由 entrypoint-ui.sh 把占位符换成 JSON；
+      // 非 docker（rsync dist/）会留下字面量 ⇒ 前端 resolveBrandConfig() 视为未配置。
+      // ⚠ 占位符必须在**单引号**里：注入的是含双引号的 JSON，放进双引号会提前结束
+      //    JS 字符串、整个 script 块语法错误（连上面两个注入占位符一起失效）。
+      window.__LUME_BRAND__ = '__LUME_BRAND_JSON__';
 
-      // 首屏防闪烁 (Anti-FOUC)：未配置主题或配置为 'system' 时自动跟随系统 prefers-color-scheme
+      // Prevent Flash of Unstyled Content (FOUC) on initial load:
       (function () {
         try {
           var savedTheme = localStorage.getItem('dufs_lume_theme') || 'system';

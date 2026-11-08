@@ -1,4 +1,4 @@
-import React, { useEffect, useState, useMemo } from 'react';
+import React, { useEffect, useState, useMemo, useRef } from 'react';
 import { useTranslation } from 'react-i18next';
 import {
   X,
@@ -14,6 +14,7 @@ import {
   ChevronRight,
   ShieldAlert,
   HelpCircle,
+  Minimize2,
 } from 'lucide-react';
 import { DufsPathItem } from '../types/dufs';
 import {
@@ -22,12 +23,9 @@ import {
   getPreviewCategory,
 } from '../utils/format';
 import { FileIconBadge } from './FileIconBadge';
-import { createDemoSvgDataUri } from '../utils/demoAssets';
+import { createDemoSvgDataUri, createDemoWavDataUri } from '../utils/demoAssets';
+import { useModalTransition } from '../utils/useModalTransition';
 
-/**
- * 沙箱提示条（D2）：正式解释放在「?」里 —— 桌面悬停显示，移动端点击显示/隐藏，
- * 两种输入都能读到全文，同时提示条本身保持一行高度不吃掉预览空间。
- */
 const SandboxHintBar: React.FC<{ onDisable: () => void }> = ({ onDisable }) => {
   const { t } = useTranslation();
   const [detailOpen, setDetailOpen] = useState(false);
@@ -46,7 +44,7 @@ const SandboxHintBar: React.FC<{ onDisable: () => void }> = ({ onDisable }) => {
         onFocus={() => setDetailOpen(true)}
         onBlur={() => setDetailOpen(false)}
         onClick={() => setDetailOpen((v) => !v)}
-        className="inline-flex items-center justify-center w-5 h-5 rounded-full border border-amber-500/40 hover:bg-amber-500/15 shrink-0 cursor-pointer"
+        className="inline-flex items-center justify-center w-5 h-5 rounded-full border border-amber-500/40 hover:bg-amber-500/15 shrink-0 cursor-pointer active:scale-90 transition-transform"
       >
         <HelpCircle className="w-3.5 h-3.5" />
       </button>
@@ -54,14 +52,14 @@ const SandboxHintBar: React.FC<{ onDisable: () => void }> = ({ onDisable }) => {
       <button
         type="button"
         onClick={onDisable}
-        className="ml-auto shrink-0 px-2.5 py-1 rounded-lg font-semibold bg-amber-500/15 hover:bg-amber-500/25 border border-amber-500/30 transition-colors cursor-pointer"
+        className="ml-auto shrink-0 px-2.5 py-1 rounded-lg font-semibold bg-amber-500/15 hover:bg-amber-500/25 border border-amber-500/30 active:scale-95 transition-all cursor-pointer"
       >
         {t('sandbox.disableBtn')}
       </button>
 
       {detailOpen && (
         <div
-          className="absolute left-2 right-2 top-[calc(100%+6px)] z-10 rounded-xl border border-amber-500/30 bg-white dark:bg-slate-900 shadow-xl p-3 leading-relaxed text-slate-700 dark:text-slate-200"
+          className="absolute left-2 right-2 top-[calc(100%+6px)] z-10 rounded-xl border border-amber-500/30 bg-white dark:bg-slate-900 shadow-xl p-3 leading-relaxed text-slate-700 dark:text-slate-200 animate-fadeIn"
           onMouseLeave={() => setDetailOpen(false)}
         >
           {t('sandbox.bannerDetail')}
@@ -75,15 +73,14 @@ interface MediaPreviewModalProps {
   item: DufsPathItem | null;
   fileUrl: string;
   isDemoMode: boolean;
-  /** HTML 预览是否在沙箱内渲染（缺省 true）。关掉沙箱的路径只有一条：`onRequestDisableSandbox` */
   htmlSandbox?: boolean;
-  /** 打开「关闭沙箱」二次确认弹窗（与设置面板共用同一个函数） */
   onRequestDisableSandbox?: () => void;
   hasPrev?: boolean;
   hasNext?: boolean;
   onPrev?: () => void;
   onNext?: () => void;
   onClose: () => void;
+  onMinimizeAudio?: (item: DufsPathItem, audioUrl: string, currentTime?: number) => void;
   onCopyLink: (item: DufsPathItem) => void;
   onDownload: (item: DufsPathItem) => void;
 }
@@ -335,52 +332,6 @@ function formatInlineMarkdown(text: string): string {
     );
 }
 
-function createDemoWavDataUri(): string {
-  const sampleRate = 22050;
-  const durationSeconds = 3;
-  const numSamples = sampleRate * durationSeconds;
-  const buffer = new ArrayBuffer(44 + numSamples * 2);
-  const view = new DataView(buffer);
-
-  const writeString = (offset: number, str: string) => {
-    for (let i = 0; i < str.length; i++) {
-      view.setUint8(offset + i, str.charCodeAt(i));
-    }
-  };
-
-  writeString(0, 'RIFF');
-  view.setUint32(4, 36 + numSamples * 2, true);
-  writeString(8, 'WAVE');
-  writeString(12, 'fmt ');
-  view.setUint32(16, 16, true);
-  view.setUint16(20, 1, true);
-  view.setUint16(22, 1, true);
-  view.setUint32(24, sampleRate, true);
-  view.setUint32(28, sampleRate * 2, true);
-  view.setUint16(32, 2, true);
-  view.setUint16(34, 16, true);
-  writeString(36, 'data');
-  view.setUint32(40, numSamples * 2, true);
-
-  for (let i = 0; i < numSamples; i++) {
-    const t = i / sampleRate;
-    const envelope = Math.exp(-t * 0.9) * Math.min(1, t * 15);
-    const wave =
-      Math.sin(2 * Math.PI * 440 * t) * 0.5 +
-      Math.sin(2 * Math.PI * 554.37 * t) * 0.3 +
-      Math.sin(2 * Math.PI * 659.25 * t) * 0.2;
-    const sample = Math.max(-1, Math.min(1, wave * envelope * 0.5));
-    view.setInt16(44 + i * 2, sample * 32767, true);
-  }
-
-  const bytes = new Uint8Array(buffer);
-  let binary = '';
-  for (let i = 0; i < bytes.byteLength; i++) {
-    binary += String.fromCharCode(bytes[i]);
-  }
-  return `data:audio/wav;base64,${btoa(binary)}`;
-}
-
 export const MediaPreviewModal: React.FC<MediaPreviewModalProps> = ({
   item,
   fileUrl,
@@ -392,6 +343,7 @@ export const MediaPreviewModal: React.FC<MediaPreviewModalProps> = ({
   onPrev,
   onNext,
   onClose,
+  onMinimizeAudio,
   onCopyLink,
   onDownload,
 }) => {
@@ -401,12 +353,86 @@ export const MediaPreviewModal: React.FC<MediaPreviewModalProps> = ({
   const [loadError, setLoadError] = useState<string | null>(null);
   const [mdMode, setMdMode] = useState<'rendered' | 'source'>('rendered');
   const [copied, setCopied] = useState(false);
+  const audioRef = useRef<HTMLAudioElement | null>(null);
 
-  // 支持 ESC 关闭、左右方向键 ← / → 切换上一个/下一个可预览文件
+  const { rendered, isClosing } = useModalTransition(!!item, 160);
+  const [cachedItem, setCachedItem] = useState<DufsPathItem | null>(item);
+  const [cachedUrl, setCachedUrl] = useState<string>(fileUrl);
+
   useEffect(() => {
+    if (item) {
+      setCachedItem(item);
+      setCachedUrl(fileUrl);
+    }
+  }, [item, fileUrl]);
+
+  const activeItem = item || cachedItem;
+  const activeUrl = item ? fileUrl : cachedUrl;
+  const category = activeItem ? getPreviewCategory(activeItem.name) : 'unsupported';
+
+  useEffect(() => {
+    if (!activeItem) return;
+    const cat = getPreviewCategory(activeItem.name);
+    setLoadError(null);
+    setMdMode('rendered');
+
+    if (cat === 'markdown' || cat === 'text' || cat === 'html') {
+      if (activeItem.demoContent !== undefined) {
+        setTextContent(activeItem.demoContent);
+        setLoading(false);
+        return;
+      }
+
+      setLoading(cat !== 'html' || htmlSandbox);
+      fetch(activeUrl, { credentials: 'same-origin' })
+        .then((res) => {
+          if (!res.ok) throw new Error(`HTTP ${res.status}`);
+          return res.text();
+        })
+        .then((txt) => {
+          setTextContent(txt);
+          setLoading(false);
+        })
+        .catch((err) => {
+          if (cat !== 'html' || htmlSandbox) {
+            setLoadError(err instanceof Error ? err.message : String(err));
+          }
+          setLoading(false);
+        });
+    }
+  }, [activeItem, activeUrl, htmlSandbox]);
+
+  const resolvedMediaSrc = useMemo(() => {
+    if (!activeItem) return '';
+    return (
+      activeItem.demoMediaUrl ||
+      (isDemoMode && category === 'image'
+        ? createDemoSvgDataUri(activeItem.name)
+        : isDemoMode && category === 'audio'
+        ? createDemoWavDataUri(activeItem.name)
+        : activeUrl)
+    );
+  }, [activeItem, isDemoMode, category, activeUrl]);
+
+  const handleCloseOrMinimize = () => {
+    if (
+      activeItem &&
+      category === 'audio' &&
+      onMinimizeAudio &&
+      audioRef.current &&
+      !audioRef.current.paused
+    ) {
+      onMinimizeAudio(activeItem, resolvedMediaSrc, audioRef.current.currentTime);
+      return;
+    }
+    onClose();
+  };
+
+  useEffect(() => {
+    if (!rendered || isClosing) return;
     const handleKeyDown = (e: KeyboardEvent) => {
       if (e.key === 'Escape') {
-        onClose();
+        handleCloseOrMinimize();
       } else if (e.key === 'ArrowLeft' && hasPrev && onPrev) {
         e.preventDefault();
         onPrev();
@@ -417,85 +443,51 @@ export const MediaPreviewModal: React.FC<MediaPreviewModalProps> = ({
     };
     window.addEventListener('keydown', handleKeyDown);
     return () => window.removeEventListener('keydown', handleKeyDown);
-  }, [onClose, hasPrev, hasNext, onPrev, onNext]);
+  });
 
-  useEffect(() => {
-    if (!item) return;
-    const category = getPreviewCategory(item.name);
-    setLoadError(null);
-    setMdMode('rendered');
-
-    if (category === 'markdown' || category === 'text' || category === 'html') {
-      if (item.demoContent !== undefined) {
-        setTextContent(item.demoContent);
-        setLoading(false);
-        return;
-      }
-
-      // HTML 文本一律抓：源码视图要用；沙箱渲染更是只能靠 srcdoc。
-      // 未开沙箱时抓失败不算错（<iframe src> 仍能工作），开了沙箱就抓不到内容就没东西可渲染。
-      setLoading(category !== 'html' || htmlSandbox);
-      fetch(fileUrl, { credentials: 'same-origin' })
-        .then((res) => {
-          if (!res.ok) throw new Error(`HTTP ${res.status}`);
-          return res.text();
-        })
-        .then((txt) => {
-          setTextContent(txt);
-          setLoading(false);
-        })
-        .catch((err) => {
-          if (category !== 'html' || htmlSandbox) {
-            setLoadError(err instanceof Error ? err.message : String(err));
-          }
-          setLoading(false);
-        });
-    }
-  }, [item, fileUrl, htmlSandbox]);
-
-  if (!item) return null;
-
-  const category = getPreviewCategory(item.name);
+  if (!rendered || !activeItem) return null;
 
   const handleCopy = () => {
-    onCopyLink(item);
+    onCopyLink(activeItem);
     setCopied(true);
     setTimeout(() => setCopied(false), 1800);
   };
 
-  const resolvedMediaSrc =
-    item.demoMediaUrl ||
-    (isDemoMode && category === 'image'
-      ? createDemoSvgDataUri(item.name)
-      : isDemoMode && category === 'audio'
-      ? createDemoWavDataUri()
-      : fileUrl);
+  const handleMinimizeToAudioPlayer = () => {
+    if (category === 'audio' && onMinimizeAudio) {
+      const curTime = audioRef.current ? audioRef.current.currentTime : 0;
+      onMinimizeAudio(activeItem, resolvedMediaSrc, curTime);
+    }
+  };
 
   return (
     <div
-      className="fixed inset-0 z-50 flex items-center justify-center p-2 sm:p-6 bg-slate-950/75 backdrop-blur-md animate-fadeIn"
-      onClick={onClose}
+      className={`fixed inset-0 z-50 flex items-center justify-center p-2 sm:p-6 bg-slate-950/75 backdrop-blur-md ${
+        isClosing ? 'animate-fadeOut' : 'animate-fadeIn'
+      }`}
+      onClick={handleCloseOrMinimize}
     >
       <div
-        className="relative w-full max-w-5xl max-h-[92vh] sm:max-h-[90vh] flex flex-col rounded-2xl bg-white dark:bg-slate-900 border border-slate-200 dark:border-slate-800 shadow-2xl overflow-hidden"
+        className={`relative w-full max-w-5xl max-h-[92vh] sm:max-h-[90vh] flex flex-col rounded-2xl bg-white dark:bg-slate-900 border border-slate-200 dark:border-slate-800 shadow-2xl overflow-hidden ${
+          isClosing ? 'animate-modalOut' : 'animate-modalIn'
+        }`}
         onClick={(e) => e.stopPropagation()}
       >
         {/* Top Header */}
         <div className="flex items-center justify-between gap-2 sm:gap-3 px-3 sm:px-5 py-2.5 sm:py-3.5 border-b border-slate-200 dark:border-slate-800 bg-slate-50/70 dark:bg-slate-900/60 shrink-0">
           <div className="flex items-center gap-2 sm:gap-3 min-w-0 flex-1">
-            <FileIconBadge item={item} size="sm" />
+            <FileIconBadge item={activeItem} size="sm" />
             <div className="min-w-0">
               <h3 className="font-semibold text-sm sm:text-base text-slate-900 dark:text-white truncate">
-                {item.name}
+                {activeItem.name}
               </h3>
               <p className="text-xs text-slate-500 dark:text-slate-400">
-                {formatBytes(item.size)} · {formatDateTime(item.mtime, i18n.language)}
+                {formatBytes(activeItem.size)} · {formatDateTime(activeItem.mtime, i18n.language)}
               </p>
             </div>
           </div>
 
           <div className="flex items-center gap-1 sm:gap-1.5 shrink-0">
-            {/* 上一个 / 下一个切换按钮组 (支持键盘 ← / →) */}
             {(hasPrev || hasNext) && (
               <div className="inline-flex items-center p-0.5 rounded-xl bg-slate-100 dark:bg-slate-800 border border-slate-200/60 dark:border-slate-700/60 mr-0.5">
                 <button
@@ -504,7 +496,7 @@ export const MediaPreviewModal: React.FC<MediaPreviewModalProps> = ({
                   onClick={onPrev}
                   title={t('preview.prevFile')}
                   aria-label={t('preview.prevFile')}
-                  className="p-1.5 rounded-lg text-slate-600 dark:text-slate-300 hover:bg-white dark:hover:bg-slate-900 disabled:opacity-35 disabled:pointer-events-none transition-all"
+                  className="p-1.5 rounded-lg text-slate-600 dark:text-slate-300 hover:bg-white dark:hover:bg-slate-900 disabled:opacity-35 disabled:pointer-events-none active:scale-90 transition-all"
                 >
                   <ChevronLeft className="w-4 h-4" />
                 </button>
@@ -514,7 +506,7 @@ export const MediaPreviewModal: React.FC<MediaPreviewModalProps> = ({
                   onClick={onNext}
                   title={t('preview.nextFile')}
                   aria-label={t('preview.nextFile')}
-                  className="p-1.5 rounded-lg text-slate-600 dark:text-slate-300 hover:bg-white dark:hover:bg-slate-900 disabled:opacity-35 disabled:pointer-events-none transition-all"
+                  className="p-1.5 rounded-lg text-slate-600 dark:text-slate-300 hover:bg-white dark:hover:bg-slate-900 disabled:opacity-35 disabled:pointer-events-none active:scale-90 transition-all"
                 >
                   <ChevronRight className="w-4 h-4" />
                 </button>
@@ -526,7 +518,7 @@ export const MediaPreviewModal: React.FC<MediaPreviewModalProps> = ({
                 <button
                   type="button"
                   onClick={() => setMdMode('rendered')}
-                  className={`inline-flex items-center gap-1 px-2.5 py-1 rounded-lg text-xs font-medium transition-colors ${
+                  className={`inline-flex items-center gap-1 px-2.5 py-1 rounded-lg text-xs font-medium active:scale-95 transition-all ${
                     mdMode === 'rendered'
                       ? 'bg-white dark:bg-slate-900 text-indigo-600 dark:text-indigo-400 shadow-sm'
                       : 'text-slate-600 dark:text-slate-400'
@@ -540,7 +532,7 @@ export const MediaPreviewModal: React.FC<MediaPreviewModalProps> = ({
                 <button
                   type="button"
                   onClick={() => setMdMode('source')}
-                  className={`inline-flex items-center gap-1 px-2.5 py-1 rounded-lg text-xs font-medium transition-colors ${
+                  className={`inline-flex items-center gap-1 px-2.5 py-1 rounded-lg text-xs font-medium active:scale-95 transition-all ${
                     mdMode === 'source'
                       ? 'bg-white dark:bg-slate-900 text-indigo-600 dark:text-indigo-400 shadow-sm'
                       : 'text-slate-600 dark:text-slate-400'
@@ -554,11 +546,23 @@ export const MediaPreviewModal: React.FC<MediaPreviewModalProps> = ({
               </div>
             )}
 
+            {category === 'audio' && onMinimizeAudio && (
+              <button
+                type="button"
+                onClick={handleMinimizeToAudioPlayer}
+                title={t('preview.minimizeToPlayer')}
+                className="inline-flex items-center gap-1.5 p-2 sm:px-2.5 sm:py-1.5 rounded-xl text-xs font-medium bg-indigo-500/10 text-indigo-600 dark:text-indigo-400 border border-indigo-500/20 hover:bg-indigo-500/20 active:scale-95 transition-all"
+              >
+                <Minimize2 className="w-3.5 h-3.5" />
+                <span className="hidden lg:inline">{t('preview.minimizeToPlayer')}</span>
+              </button>
+            )}
+
             <button
               type="button"
               onClick={handleCopy}
               title={t('preview.copyDirectLink')}
-              className="inline-flex items-center justify-center gap-1.5 p-2 sm:px-3 sm:py-1.5 rounded-xl text-xs font-medium bg-slate-100 hover:bg-slate-200 dark:bg-slate-800 dark:hover:bg-slate-700 text-slate-700 dark:text-slate-200 transition-colors"
+              className="inline-flex items-center justify-center gap-1.5 p-2 sm:px-3 sm:py-1.5 rounded-xl text-xs font-medium bg-slate-100 hover:bg-slate-200 dark:bg-slate-800 dark:hover:bg-slate-700 text-slate-700 dark:text-slate-200 active:scale-95 transition-all"
             >
               {copied ? (
                 <Check className="w-3.5 h-3.5 text-emerald-500" />
@@ -570,9 +574,9 @@ export const MediaPreviewModal: React.FC<MediaPreviewModalProps> = ({
 
             <button
               type="button"
-              onClick={() => onDownload(item)}
+              onClick={() => onDownload(activeItem)}
               title={t('preview.downloadRaw')}
-              className="inline-flex items-center justify-center gap-1.5 p-2 sm:px-3 sm:py-1.5 rounded-xl text-xs font-medium bg-indigo-600 hover:bg-indigo-500 text-white transition-colors"
+              className="inline-flex items-center justify-center gap-1.5 p-2 sm:px-3 sm:py-1.5 rounded-xl text-xs font-semibold bg-indigo-600 hover:bg-indigo-500 text-white shadow-sm active:scale-95 transition-all"
             >
               <Download className="w-3.5 h-3.5" />
               <span className="hidden md:inline">{t('preview.downloadRaw')}</span>
@@ -580,11 +584,11 @@ export const MediaPreviewModal: React.FC<MediaPreviewModalProps> = ({
 
             {!isDemoMode && (
               <a
-                href={fileUrl}
+                href={activeUrl}
                 target="_blank"
                 rel="noopener noreferrer"
                 title={t('preview.openInNewTab')}
-                className="p-2 rounded-xl text-slate-500 hover:text-slate-800 dark:text-slate-400 dark:hover:text-slate-200 hover:bg-slate-100 dark:hover:bg-slate-800"
+                className="p-2 rounded-xl text-slate-500 hover:text-slate-800 dark:text-slate-400 dark:hover:text-slate-200 hover:bg-slate-100 dark:hover:bg-slate-800 active:scale-90 transition-all"
               >
                 <ExternalLink className="w-4 h-4" />
               </a>
@@ -592,16 +596,16 @@ export const MediaPreviewModal: React.FC<MediaPreviewModalProps> = ({
 
             <button
               type="button"
-              onClick={onClose}
+              onClick={handleCloseOrMinimize}
               title={t('preview.close')}
-              className="p-2 rounded-xl text-slate-500 hover:text-slate-900 dark:text-slate-400 dark:hover:text-white hover:bg-slate-100 dark:hover:bg-slate-800"
+              className="p-2 rounded-xl text-slate-500 hover:text-slate-900 dark:text-slate-400 dark:hover:text-white hover:bg-slate-100 dark:hover:bg-slate-800 active:scale-90 transition-all"
             >
               <X className="w-4 h-4" />
             </button>
           </div>
         </div>
 
-        {/* 弹窗主体内容 */}
+        {/* Modal Body */}
         <div className="flex-1 overflow-y-auto min-h-[320px] flex flex-col bg-white dark:bg-slate-900">
           {loading ? (
             <div className="flex-1 flex flex-col items-center justify-center py-20 text-slate-500">
@@ -618,8 +622,8 @@ export const MediaPreviewModal: React.FC<MediaPreviewModalProps> = ({
             <div className="flex-1 flex items-center justify-center p-6 bg-slate-950/20 dark:bg-slate-950/50">
               <img
                 src={resolvedMediaSrc}
-                alt={item.name}
-                className="max-w-full max-h-[72vh] h-auto rounded-xl shadow-md object-contain"
+                alt={activeItem.name}
+                className="max-w-full max-h-[72vh] h-auto rounded-xl shadow-md object-contain animate-fadeIn"
               />
             </div>
           ) : category === 'video' ? (
@@ -632,38 +636,48 @@ export const MediaPreviewModal: React.FC<MediaPreviewModalProps> = ({
               />
             </div>
           ) : category === 'audio' ? (
-            <div className="flex-1 flex flex-col items-center justify-center py-16 px-6 bg-slate-50/50 dark:bg-slate-950/50">
-              <div className="w-20 h-20 rounded-3xl bg-gradient-to-tr from-pink-500 to-indigo-500 flex items-center justify-center text-white shadow-lg mb-6">
-                <FileIconBadge item={item} size="lg" />
+            <div className="flex-1 flex flex-col items-center justify-center py-14 px-6 bg-slate-50/50 dark:bg-slate-950/50">
+              <div className="w-20 h-20 rounded-3xl bg-gradient-to-tr from-pink-500 to-indigo-500 flex items-center justify-center text-white shadow-lg mb-5 animate-pulse">
+                <FileIconBadge item={activeItem} size="lg" />
               </div>
               <p className="font-semibold text-base text-slate-900 dark:text-white mb-4">
-                {item.name}
+                {activeItem.name}
               </p>
-              <audio src={resolvedMediaSrc} controls autoPlay className="w-full max-w-md" />
+              <audio ref={audioRef} src={resolvedMediaSrc} controls autoPlay className="w-full max-w-md" />
+              {onMinimizeAudio && (
+                <button
+                  type="button"
+                  onClick={handleMinimizeToAudioPlayer}
+                  className="mt-5 inline-flex items-center gap-1.5 px-3.5 py-2 rounded-xl text-xs font-semibold bg-indigo-500/10 text-indigo-600 dark:text-indigo-400 border border-indigo-500/25 hover:bg-indigo-500/20 active:scale-95 transition-all"
+                >
+                  <Minimize2 className="w-3.5 h-3.5" />
+                  <span>{t('preview.minimizeToPlayer')}</span>
+                </button>
+              )}
             </div>
           ) : category === 'pdf' ? (
             <div className="flex-1 min-h-[70vh] bg-white dark:bg-slate-900">
               {isDemoMode ? (
                 <div className="h-[65vh] flex flex-col items-center justify-center p-8 text-center bg-slate-50/50 dark:bg-slate-950/50">
-                  <FileIconBadge item={item} size="lg" />
+                  <FileIconBadge item={activeItem} size="lg" />
                   <h4 className="text-base font-semibold text-slate-900 dark:text-white mt-4">
-                    {item.name}
+                    {activeItem.name}
                   </h4>
                   <p className="text-xs sm:text-sm text-slate-500 dark:text-slate-400 max-w-md mt-2">
                     在真实 Dufs 环境下，此处通过内置 PDF 视图直接流式加载{' '}
                     <code className="px-1.5 py-0.5 rounded bg-slate-100 dark:bg-slate-800 font-mono">
-                      {fileUrl}
+                      {activeUrl}
                     </code>
                     。
                   </p>
                 </div>
               ) : (
-                <iframe src={fileUrl} title={item.name} className="w-full h-[75vh] border-0" />
+                <iframe src={activeUrl} title={activeItem.name} className="w-full h-[75vh] border-0" />
               )}
             </div>
           ) : category === 'markdown' ? (
             mdMode === 'rendered' ? (
-              <div className="p-6 sm:p-8 bg-white dark:bg-slate-900">
+              <div className="p-6 sm:p-8 bg-white dark:bg-slate-900 animate-fadeIn">
                 <div
                   className="prose prose-slate dark:prose-invert max-w-none text-slate-800 dark:text-slate-200"
                   dangerouslySetInnerHTML={{ __html: renderSimpleMarkdown(textContent) }}
@@ -674,20 +688,14 @@ export const MediaPreviewModal: React.FC<MediaPreviewModalProps> = ({
             )
           ) : category === 'html' ? (
             mdMode === 'rendered' ? (
-              <div className="flex-1 flex flex-col bg-white dark:bg-slate-900">
+              <div className="flex-1 flex flex-col bg-white dark:bg-slate-900 animate-fadeIn">
                 {htmlSandbox ? (
                   <>
-                    {/*
-                      受限预览：srcdoc + sandbox="allow-scripts"（**不含** allow-same-origin）
-                      ⇒ 页面 JS 在 opaque origin 上执行，拿不到本站登录态，也 fetch 不到同目录资源；
-                      相对路径的 CSS/图片/脚本照常加载（那些请求由浏览器发出，不受同源策略限制）。
-                      要浏览"依赖同目录 fetch 的完整静态站"，用户需显式关闭沙箱（走二次确认）。
-                    */}
                     <SandboxHintBar onDisable={onRequestDisableSandbox ?? (() => {})} />
-                    {textContent || item.demoContent ? (
+                    {textContent || activeItem.demoContent ? (
                       <iframe
-                        title={item.name}
-                        srcDoc={textContent || item.demoContent || ''}
+                        title={activeItem.name}
+                        srcDoc={textContent || activeItem.demoContent || ''}
                         sandbox="allow-scripts"
                         className="w-full flex-1 min-h-[72vh] border-0 bg-white"
                       />
@@ -699,26 +707,22 @@ export const MediaPreviewModal: React.FC<MediaPreviewModalProps> = ({
                     )}
                   </>
                 ) : (
-                  /*
-                    用户已显式关闭沙箱：原生无限制 <iframe>，直接内嵌浏览静态网站，
-                    完整执行 JavaScript 并加载同目录相对资源（知情同意，非访问控制）。
-                  */
                   <iframe
-                    title={item.name}
-                    src={isDemoMode ? undefined : fileUrl}
-                    srcDoc={isDemoMode ? textContent || item.demoContent || '' : undefined}
+                    title={activeItem.name}
+                    src={isDemoMode ? undefined : activeUrl}
+                    srcDoc={isDemoMode ? textContent || activeItem.demoContent || '' : undefined}
                     className="w-full flex-1 min-h-[72vh] border-0 bg-white"
                   />
                 )}
               </div>
             ) : (
-              <SyntaxHighlightedCode code={textContent || item.demoContent || ''} />
+              <SyntaxHighlightedCode code={textContent || activeItem.demoContent || ''} />
             )
           ) : category === 'text' ? (
             <SyntaxHighlightedCode code={textContent} />
           ) : (
             <div className="flex-1 flex flex-col items-center justify-center py-16 text-center bg-slate-50/50 dark:bg-slate-950/50">
-              <FileIconBadge item={item} size="lg" />
+              <FileIconBadge item={activeItem} size="lg" />
               <p className="text-sm text-slate-600 dark:text-slate-400 mt-4 max-w-md">
                 {t('preview.unsupported')}
               </p>

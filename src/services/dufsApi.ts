@@ -1,4 +1,11 @@
-import { AuthState, DufsIndexData, DufsPathItem, ServerInfo, ThumbsCapability } from '../types/dufs';
+import {
+  AuthState,
+  DufsIndexData,
+  DufsPathItem,
+  LumeBrandConfig,
+  ServerInfo,
+  ThumbsCapability,
+} from '../types/dufs';
 
 export class DufsAuthError extends Error {
   status: number;
@@ -12,7 +19,7 @@ export class DufsAuthError extends Error {
   }
 }
 
-/** 用户主动取消上传（XHR abort）—— 与鉴权拦截、网络错误分开，调用方才能只清理残留而不弹登录引导 */
+/** Raised when a file upload is explicitly cancelled by the user (`xhr.abort()`). */
 export class UploadCancelledError extends Error {
   constructor(message = 'Upload cancelled by user') {
     super(message);
@@ -20,12 +27,9 @@ export class UploadCancelledError extends Error {
   }
 }
 
-/**
- * 把任意异常换成能给人看的短句（带 HTTP 状态码）。
- */
 export function describeError(err: unknown): string {
   if (err instanceof DufsAuthError) {
-    return `HTTP ${err.status} 需要登录`;
+    return `HTTP ${err.status}`;
   }
   if (err instanceof Error && err.message) {
     return err.message;
@@ -34,7 +38,35 @@ export function describeError(err: unknown): string {
 }
 
 /**
- * 解码 Dufs 注入到 index.html 中的 Base64 UTF-8 JSON 数据 (`__INDEX_DATA__`)
+ * Resolves runtime branding configuration injected into `index.html` by `docker/entrypoint-ui.sh`
+ * (or set via `window.__LUME_BRAND__`). Safely ignores the raw `__LUME_BRAND_JSON__` placeholder
+ * when running outside Docker.
+ */
+export function resolveBrandConfig(): LumeBrandConfig {
+  if (typeof window === 'undefined') return {};
+  try {
+    const rawBrand = window.__LUME_BRAND__;
+    if (rawBrand && typeof rawBrand === 'object') {
+      return rawBrand;
+    }
+    if (typeof rawBrand === 'string') {
+      const trimmed = rawBrand.trim();
+      if (!trimmed || trimmed.includes('__LUME_BRAND' + '_JSON__')) {
+        return {};
+      }
+      const parsed = JSON.parse(trimmed) as unknown;
+      if (parsed && typeof parsed === 'object') {
+        return parsed as LumeBrandConfig;
+      }
+    }
+  } catch {
+    // Ignore malformed JSON and fall back to built-in locale defaults
+  }
+  return {};
+}
+
+/**
+ * Decodes the Base64-encoded UTF-8 JSON payload (`__INDEX_DATA__`) injected by Dufs into `index.html`.
  */
 export function decodeDufsIndexData(rawBase64?: string): DufsIndexData | null {
   if (!rawBase64 || rawBase64 === '__INDEX' + '_DATA__' || rawBase64.includes('__INDEX_DATA__')) {
@@ -55,7 +87,7 @@ export function decodeDufsIndexData(rawBase64?: string): DufsIndexData | null {
 }
 
 /**
- * 判断 fetch 响应是否被 Caddy + TinyAuth 反向代理鉴权拦截
+ * Checks whether a `fetch` response was intercepted by a reverse-proxy authentication gateway (e.g., Caddy + TinyAuth).
  */
 export function checkResponseAuthIntercepted(res: Response): {
   intercepted: boolean;
@@ -91,7 +123,7 @@ export function checkResponseAuthIntercepted(res: Response): {
 }
 
 /**
- * 获取指定目录的 JSON 数据 (`GET /path/?json`)
+ * Fetches directory listing metadata via `GET /path/?json`.
  */
 export async function fetchDirectoryJson(dirUrl: string): Promise<DufsIndexData> {
   const sep = dirUrl.includes('?') ? '&' : '?';
@@ -117,29 +149,25 @@ export async function fetchDirectoryJson(dirUrl: string): Promise<DufsIndexData>
   return (await res.json()) as DufsIndexData;
 }
 
-/**
- * 扩展 API 路由：由 Caddy 匹配 `/__lume__/info` 并反代至宿主/容器内极简 sh 脚本实时输出 JSON。
- * v1.2.x 叫 `/__lume__/disk`；v1.3.0 改名 —— 它返回的不只是磁盘水位，而是「服务端概况 + 能力位」。
- */
+/** Extension API endpoint for session verification, storage metrics, and capability discovery. */
 export const LUME_INFO_API_PATH = '__lume__/info';
 
-/** 服务端缩略图端点（同一个扩展脚本按请求行分流） */
+/** Extension API endpoint for on-demand server-side image thumbnail generation. */
 export const LUME_THUMB_API_PATH = '__lume__/thumb';
 
 /**
- * 登录入口查询参数（F3a）：
- * Caddy 把未登录的 `GET /` 直接 302 到公开区 `/share/`，所以“去登录”不能再靠“访问 `/`”，
- * 必须带 `?login=1` 让这个请求保持受保护 ⇒ 由 forward_auth 弹给认证中心。
+ * Query parameter appended when initiating sign-in (`/?login=1`).
+ * Ensures the request remains routed through the reverse-proxy auth handler even when bare `GET /` redirects guests to `/share/`.
  */
 export const LOGIN_QUERY_PARAM = 'login';
 
-/** 把站点根 URL 换成“登录入口” URL（带 `?login=1`） */
-export function buildLoginUrl(rootUrl: string): string {
+export function buildLoginUrl(rootUrl: string, customLoginUrl?: string): string {
+  const trimmed = customLoginUrl?.trim();
+  if (trimmed) return trimmed;
   const sep = rootUrl.includes('?') ? '&' : '?';
   return `${rootUrl}${sep}${LOGIN_QUERY_PARAM}=1`;
 }
 
-/** 当前地址栏是否带着登录入口参数（app 启动后会把 URL 洗回去） */
 export function hasLoginQueryParam(): boolean {
   try {
     return new URL(window.location.href).searchParams.has(LOGIN_QUERY_PARAM);
@@ -148,7 +176,6 @@ export function hasLoginQueryParam(): boolean {
   }
 }
 
-/** 把 URL 里的登录入口参数抹掉（只改地址栏，不重新拉取页面） */
 export function stripLoginQueryParam(): void {
   try {
     const url = new URL(window.location.href);
@@ -157,11 +184,10 @@ export function stripLoginQueryParam(): void {
     const next = `${url.pathname}${url.search}${url.hash}`;
     window.history.replaceState(window.history.state, '', next);
   } catch {
-    // 不支持 URL/History 的环境：什么都不做，参数留着也不影响功能
+    // Ignore in environments without History API support
   }
 }
 
-/** 把 `thumbs` 能力位归一化成布尔（兼容 `true` / `{enabled:true}` / 缺省=不支持） */
 export function thumbsCapabilityEnabled(
   thumbs: ThumbsCapability | undefined | null
 ): boolean {
@@ -180,8 +206,7 @@ function parseServerInfoPayload(data: unknown): ServerInfo | null {
 }
 
 /**
- * 单独刷新服务端概况（磁盘面板上的刷新按钮调用）。
- * 被网关拦（未登录）时返回 null，调用方自己处理“没数据”。
+ * Refreshes server storage metrics and capability flags (`GET /__lume__/info`).
  */
 export async function fetchServerInfo(rootUrl: string): Promise<ServerInfo | null> {
   const normalizedRoot = rootUrl.endsWith('/') ? rootUrl : `${rootUrl}/`;
@@ -203,13 +228,8 @@ export async function fetchServerInfo(rootUrl: string): Promise<ServerInfo | nul
 }
 
 /**
- * 拼服务端缩略图 URL。`absPath` = 以 `/` 开头的站内绝对路径（不含 uri_prefix）。
- * “锁在数据根内 + `root=share` 时只允许 `/share/` 子树”由扩展脚本自己把关，前端只负责把路径递过去。
- */
-/**
- * `scope` = 期望的作用域：`share` 表示"我是未登录访客，只准取公开区"。
- * 脚本对 `root=share` 的请求会硬拦在 `DUFS_ANON_PREFIX` 子树内，所以这个参数
- * 是给服务端看的约束声明，不是权限凭证（真权限仍由 Caddy 的 handle 决定）。
+ * Builds the request URL for `/__lume__/thumb`.
+ * `absPath` is the site-relative path starting with `/` (excluding `uriPrefix`).
  */
 export function buildThumbUrl(
   uriPrefix: string,
@@ -225,12 +245,11 @@ export function buildThumbUrl(
 }
 
 /**
- * 启动时的单次合并探测 `GET /__lume__/info`：
- * 1. 先请求受网关保护的 `/__lume__/info`：
- *    - 被 302/401 拦截 ⇒ 直接判定 `anonymous`（未登录），无需第二次请求；
- *    - 返回 200 JSON ⇒ 判定 `authenticated`，同时拿到磁盘水位与服务端能力位，一次请求三件事；
- * 2. 返回 404 说明当前站点尚未在 Caddy 中配置 `/__lume__/info` 扩展脚本，
- *    自动回退请求一次轻量 `GET /?simple` 判断登录态。
+ * Combined startup probe (`GET /__lume__/info`):
+ * 1. Requests `/__lume__/info` behind the auth gateway:
+ *    - 302/401 interception -> `authState = 'anonymous'`
+ *    - 200 OK JSON -> `authState = 'authenticated'` + populates `serverInfo`
+ * 2. If `/__lume__/info` returns 404 (extension API not deployed), falls back to `GET /?simple` to determine session status.
  */
 export async function probeAuthAndInfo(
   rootUrl: string
@@ -256,7 +275,6 @@ export async function probeAuthAndInfo(
       }
       return { authState: 'authenticated', serverInfo: info };
     }
-    // 404 等状态说明未配置 /__lume__/info 扩展 API，回退至 /?simple 轻量探测
     const sep = normalizedRoot.includes('?') ? '&' : '?';
     const fallbackRes = await fetch(`${normalizedRoot}${sep}simple`, {
       method: 'GET',
@@ -361,7 +379,7 @@ export function uploadFileWithProgress(
 }
 
 /**
- * 通过 WebDAV MKCOL 方法创建新目录
+ * Creates a directory via WebDAV `MKCOL`.
  */
 export async function createDirectoryMkcol(targetDirUrl: string): Promise<void> {
   let res: Response;
@@ -390,7 +408,7 @@ export async function createDirectoryMkcol(targetDirUrl: string): Promise<void> 
 }
 
 /**
- * 通过 HTTP DELETE 删除文件或目录
+ * Deletes a file or directory via `HTTP DELETE`.
  */
 export async function deleteFileOrDirectory(
   targetUrl: string,
@@ -426,7 +444,7 @@ export async function deleteFileOrDirectory(
 }
 
 /**
- * 本地开发与演示环境的虚拟目录树
+ * Virtual directory tree used when running in interactive Demo Mode.
  */
 export const DEMO_DIRECTORY_TREE: Record<string, DufsPathItem[]> = {
   '/': [
@@ -450,20 +468,20 @@ export const DEMO_DIRECTORY_TREE: Record<string, DufsPathItem[]> = {
       path_type: 'File',
       size: 4820,
       mtime: 1762462000000,
-      demoContent: `# dufs-lume-ui
+      demoContent: `# Dufs Lume UI
 
-欢迎使用 **dufs-lume-ui**！这是一个专为 Rust 静态文件服务器 [Dufs](https://github.com/sigoden/dufs) 打造的极简、优雅、响应式前端主题。
+**dufs-lume-ui** 是一个专为轻量级静态文件服务器 [Dufs](https://github.com/sigoden/dufs) 设计的现代化前端主题，通过 \`--assets\` 静态资源覆盖机制即插即用。
 
-## 核心亮点
+## 核心特性
 
-- **双视图自由切换**：支持传统表格列表视图（List View）与现代网格卡片视图（Grid View），状态自动持久化至 \`localStorage\`。
-- **快捷键增强多选**：支持 \`Ctrl/Cmd + 点击\` 直接切换选择而不打开预览弹窗，支持 \`Shift + 点击\` 连续区间多选。
-- **富媒体与交互式网页预览**：支持图片、音视频、Markdown、代码语法高亮与原生 \`<iframe>\` 静态网站浏览（支持执行 JS 与弹窗内左右切换上一项/下一项）。
-- **Caddy + 极简 sh 扩展 API**：通过 \`/__lume__/info\` 一次请求同时完成登录态探测、实时磁盘空间读取与服务端能力发现（缩略图），零落盘文件污染。
+- **双视图切换**：支持列表视图（List View）与网格卡片视图（Grid View），面包屑导航栏内置快捷返回上级按钮。
+- **快捷键与批量打包**：支持 \`Ctrl/Cmd + 点击\` 切换选择、\`Shift + 点击\` 连续区间多选，以及客户端流式 ZIP 打包下载。
+- **富媒体与沙箱网页预览**：支持图片、音视频、Markdown、PDF、代码高亮与默认沙箱隔离的 HTML 静态网页预览。
+- **轻量级扩展接口**：通过 \`/__lume__/info\` 与 \`/__lume__/thumb\` 实现单次请求会话探测、存储空间统计与服务端缩略图按需生成。
 `,
     },
     {
-      name: 'interactive-demo.html',
+      name: 'index.html',
       path_type: 'File',
       size: 2480,
       mtime: 1762458000000,
@@ -471,7 +489,7 @@ export const DEMO_DIRECTORY_TREE: Record<string, DufsPathItem[]> = {
 <html lang="zh-CN">
 <head>
   <meta charset="UTF-8" />
-  <title>Interactive Static Site Preview</title>
+  <title>Static Web Page Preview</title>
   <style>
     body {
       margin: 0;
@@ -507,10 +525,10 @@ export const DEMO_DIRECTORY_TREE: Record<string, DufsPathItem[]> = {
 </head>
 <body>
   <div class="card">
-    <h2>✨ 静态网站原生 Iframe 预览</h2>
-    <p>当前 HTML 在完整功能的 <code>&lt;iframe&gt;</code> 中运行，JavaScript、Canvas 与同目录相对资源均可正常执行。</p>
-    <p id="counter">点击计数：0</p>
-    <button onclick="window.count = (window.count || 0) + 1; document.getElementById('counter').textContent = '点击计数：' + window.count;">
+    <h2>HTML 静态页面内嵌预览</h2>
+    <p>默认运行于隔离沙箱环境以保护站点凭据；关闭沙箱后可完整加载同目录相对资源。</p>
+    <p id="counter">交互计数：0</p>
+    <button onclick="window.count = (window.count || 0) + 1; document.getElementById('counter').textContent = '交互计数：' + window.count;">
       点我测试 JS 执行
     </button>
   </div>
@@ -522,11 +540,10 @@ export const DEMO_DIRECTORY_TREE: Record<string, DufsPathItem[]> = {
       path_type: 'File',
       size: 1640,
       mtime: 1762410000000,
-      demoContent: `# Caddy + TinyAuth + 极简 sh 扩展 API 推荐配置示例
+      demoContent: `# Caddy + TinyAuth + Lume 扩展接口配置示例
 files.example.com {
     encode zstd gzip
 
-    # 匹配受保护路径（非 /share 公开区、非静态资源前缀）
     @gated {
         not path /share* /__dufs_v*
     }
@@ -537,8 +554,7 @@ files.example.com {
             copy_headers Remote-User Remote-Email Remote-Name
         }
 
-        # 扩展 API：实时执行极简 sh 脚本返回磁盘水位 JSON（无落盘文件）
-        handle /__lume__/info {
+        handle /__lume__/* {
             reverse_proxy unix//run/lume-info.sock
         }
 
@@ -564,6 +580,12 @@ files.example.com {
       mtime: 1762310000000,
     },
     {
+      name: 'lofi-chime-loop.wav',
+      path_type: 'File',
+      size: 512000,
+      mtime: 1762305000000,
+    },
+    {
       name: 'dufs-deployment-guide.pdf',
       path_type: 'File',
       size: 1258291,
@@ -576,10 +598,10 @@ files.example.com {
       path_type: 'File',
       size: 2310,
       mtime: 1762420800000,
-      demoContent: `# Caddy + TinyAuth + 极简 sh 扩展 API 说明
+      demoContent: `# 网关鉴权与扩展接口架构说明
 
-1. **零落盘文件**：不再向数据目录写入 \`.lume-disk.json\`，而是由 Caddy 拦截 \`/__lume__/*\` 转发给极简 \`sh\` 脚本实时执行 \`df -B1\` 输出 JSON。
-2. **一次请求完成三件事**：前端启动时仅请求一次 \`GET /__lume__/info\`，若返回 \`302/401\` 即判定为未登录访客；若返回 \`200\` 则同时完成已登录认证、磁盘容量读取与**服务端能力发现**（\`thumbs\` 能力位决定网格缩略图走服务端缩放还是退回原图）。`,
+1. **零数据目录写入**：扩展接口由 Caddy 将 \`/__lume__/*\` 转发至 POSIX \`sh\` 脚本实时返回数据，不在 Dufs 数据目录生成任何隐藏文件。
+2. **单次合并探测**：前端启动时仅请求一次 \`GET /__lume__/info\`，既可根据网关 \`302/401\` 响应识别公开访客，也可在已登录时一次性获取磁盘可用容量与服务端缩略图能力。`,
     },
     {
       name: 'lume-info-api.sh',
@@ -587,7 +609,7 @@ files.example.com {
       size: 960,
       mtime: 1762400000000,
       demoContent: `#!/bin/sh
-# 极简扩展 API 响应脚本（配合 socat Unix Socket；/__lume__/info 与 /__lume__/thumb 同一条管道）
+# Lume 扩展接口示例（同时服务 /__lume__/info 与 /__lume__/thumb）
 ROOT="\${DUFS_SERVE_PATH:-/var/lib/dufs}"
 set -- $(df -P -k "$ROOT" | tail -n 1)
 FREE=$(( \${4:-0} * 1024 ))
@@ -620,19 +642,19 @@ printf "HTTP/1.1 200 OK\\r\\nContent-Type: application/json; charset=utf-8\\r\\n
       path_type: 'File',
       size: 980,
       mtime: 1762360000000,
-      demoContent: `Dufs Lume UI v1.2.0 Release Notes
+      demoContent: `Dufs Lume UI v0.1.0 Release Notes
 =================================
-- Removed .lume-disk.json file dependency; switched to real-time /__lume__/info sh API
-- Combined auth state probe & disk space fetch into a single request
-- Full-bleed brand logo without padding or border ring
-- Full-featured <iframe> preview for HTML static sites with JS execution
-- Added Ctrl/Cmd + Click to toggle selection and Shift + Click range selection
-- Added Prev/Next navigation (buttons + Left/Right arrow keys) in preview modal`,
+- Initial public release of Dufs Lume UI
+- Responsive List and Grid views with parent directory navigation in breadcrumbs
+- Real-time /__lume__/info and /__lume__/thumb extension APIs via POSIX shell script
+- Sandboxed HTML preview mode with explicit user consent before同源 execution
+- Client-side streaming ZIP packaging for multi-item selections
+- Runtime branding customization via Docker environment variables`,
     },
   ],
   '/releases/': [
     {
-      name: 'dufs-lume-ui-v1.2.0-dist.zip',
+      name: 'dufs-lume-ui-v0.1.0-dist.zip',
       path_type: 'File',
       size: 189440,
       mtime: 1762280000000,
@@ -642,7 +664,7 @@ printf "HTTP/1.1 200 OK\\r\\nContent-Type: application/json; charset=utf-8\\r\\n
       path_type: 'File',
       size: 256,
       mtime: 1762279000000,
-      demoContent: `e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855  dufs-lume-ui-v1.2.0-dist.zip`,
+      demoContent: `e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855  dufs-lume-ui-v0.1.0-dist.zip`,
     },
   ],
 };

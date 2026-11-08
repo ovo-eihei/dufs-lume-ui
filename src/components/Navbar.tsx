@@ -4,6 +4,7 @@ import {
   Search,
   X,
   Upload,
+  ClipboardPaste,
   FolderPlus,
   LayoutList,
   LayoutGrid,
@@ -12,17 +13,27 @@ import {
   Monitor,
   Globe,
   ShieldAlert,
-  ShieldCheck,
   Settings,
   LogIn,
   RefreshCw,
   ImageIcon,
   ShieldQuestion,
   Sparkles,
+  HardDrive,
 } from 'lucide-react';
-import { AuthState, LanguagePreference, ThemePreference, ThumbPreference, ViewMode } from '../types/dufs';
+import {
+  AuthState,
+  LanguagePreference,
+  LumeBrandConfig,
+  ServerInfo,
+  ThemePreference,
+  ThumbPreference,
+  ViewMode,
+} from '../types/dufs';
+import { formatBytes } from '../utils/format';
 
 interface NavbarProps {
+  brand?: LumeBrandConfig;
   searchQuery: string;
   onSearchChange: (q: string) => void;
   viewMode: ViewMode;
@@ -33,30 +44,28 @@ interface NavbarProps {
   languagePreference: LanguagePreference;
   onLanguagePreferenceChange: (pref: LanguagePreference) => void;
   allowUpload: boolean;
-  /** dufs 允许写 且 已登录 —— 上传/新建文件夹按钮只在它为 true 时出现 */
   canWrite: boolean;
   authState: AuthState;
   onLoginClick: () => void;
   onRecheckAuth: () => void;
-  /** 缩略图偏好（auto = 用户从没设置过 ⇒ 跟随服务端能力） */
+  serverInfo?: ServerInfo | null;
   thumbPreference: ThumbPreference;
   onThumbPreferenceChange: (pref: ThumbPreference) => void;
-  /** 服务端 `/__lume__/info` 是否注册了缩略图能力 */
   serverThumbsAvailable: boolean;
-  /** HTML 预览沙箱是否开启（缺省开） */
   htmlSandbox: boolean;
   onEnableSandbox: () => void;
-  /** 关闭沙箱的唯一入口：打开二次确认弹窗，不直接改状态 */
   onRequestDisableSandbox: () => void;
   isDemoMode: boolean;
   simulateAuthIntercept: boolean;
   onToggleSimulateAuth: () => void;
   onTriggerUploadClick: () => void;
+  onOpenPasteModal: () => void;
   onOpenMkdirModal: () => void;
   searchInputRef: React.RefObject<HTMLInputElement>;
 }
 
 export const Navbar: React.FC<NavbarProps> = ({
+  brand,
   searchQuery,
   onSearchChange,
   viewMode,
@@ -70,6 +79,7 @@ export const Navbar: React.FC<NavbarProps> = ({
   authState,
   onLoginClick,
   onRecheckAuth,
+  serverInfo,
   thumbPreference,
   onThumbPreferenceChange,
   serverThumbsAvailable,
@@ -80,12 +90,23 @@ export const Navbar: React.FC<NavbarProps> = ({
   simulateAuthIntercept,
   onToggleSimulateAuth,
   onTriggerUploadClick,
+  onOpenPasteModal,
   onOpenMkdirModal,
   searchInputRef,
 }) => {
   const { t } = useTranslation();
   const [settingsOpen, setSettingsOpen] = useState(false);
+  const [iconLoadFailed, setIconLoadFailed] = useState(false);
+  const [sandboxHintOpen, setSandboxHintOpen] = useState(false);
   const settingsDropdownRef = useRef<HTMLDivElement>(null);
+
+  const brandTitle = brand?.title?.trim() || t('app.title');
+  const brandSubtitle = brand?.subtitle?.trim() || t('app.subtitle');
+  const brandIconUrl = brand?.icon?.trim() || '';
+
+  useEffect(() => {
+    setIconLoadFailed(false);
+  }, [brandIconUrl]);
 
   const accessStateLabel = isDemoMode
     ? t('app.demoBadge')
@@ -128,14 +149,22 @@ export const Navbar: React.FC<NavbarProps> = ({
       <div className="max-w-7xl mx-auto px-3 sm:px-6 lg:px-8 py-2.5 md:py-0 md:h-16 flex flex-wrap md:flex-nowrap items-center justify-between gap-2.5 md:gap-4">
         {/* Brand Logo & Title */}
         <div className="flex items-center gap-2.5 sm:gap-3 shrink-0 min-w-0">
-          {/* 品牌标记 = 通用图标（渐变块 + 星芒），与 public/favicon.svg 同一套形状 */}
-          <div className="w-9 h-9 sm:w-10 sm:h-10 rounded-xl bg-gradient-to-br from-indigo-500 to-violet-600 flex items-center justify-center text-white shadow-md shadow-indigo-500/20 shrink-0">
-            <Sparkles className="w-4 h-4 sm:w-5 sm:h-5" />
-          </div>
+          {brandIconUrl && !iconLoadFailed ? (
+            <img
+              src={brandIconUrl}
+              alt={brandTitle}
+              onError={() => setIconLoadFailed(true)}
+              className="w-9 h-9 sm:w-10 sm:h-10 rounded-xl object-cover shrink-0 shadow-sm transition-transform active:scale-95"
+            />
+          ) : (
+            <div className="w-9 h-9 sm:w-10 sm:h-10 rounded-xl bg-gradient-to-br from-indigo-500 to-violet-600 flex items-center justify-center text-white shadow-md shadow-indigo-500/20 shrink-0 transition-transform active:scale-95">
+              <Sparkles className="w-4 h-4 sm:w-5 sm:h-5" />
+            </div>
+          )}
           <div className="min-w-0">
             <div className="flex items-center gap-1.5 sm:gap-2">
               <span className="font-bold text-sm sm:text-base tracking-tight text-slate-900 dark:text-white truncate">
-                {t('app.title')}
+                {brandTitle}
               </span>
               {isDemoMode && (
                 <span className="text-[10px] sm:text-[11px] font-medium px-1.5 sm:px-2 py-0.5 rounded-full bg-indigo-500/10 text-indigo-600 dark:text-indigo-400 border border-indigo-500/20 shrink-0">
@@ -144,7 +173,7 @@ export const Navbar: React.FC<NavbarProps> = ({
               )}
             </div>
             <p className="text-xs text-slate-500 dark:text-slate-400 hidden sm:block truncate">
-              {t('app.subtitle')}
+              {brandSubtitle}
             </p>
           </div>
         </div>
@@ -166,7 +195,7 @@ export const Navbar: React.FC<NavbarProps> = ({
                 type="button"
                 onClick={() => onSearchChange('')}
                 title={t('toolbar.clearSearch')}
-                className="absolute right-2.5 p-1 text-slate-400 hover:text-slate-600 dark:hover:text-slate-200 rounded-md"
+                className="absolute right-2.5 p-1 text-slate-400 hover:text-slate-600 dark:hover:text-slate-200 rounded-md active:scale-90 transition-transform"
               >
                 <X className="w-3.5 h-3.5" />
               </button>
@@ -175,14 +204,14 @@ export const Navbar: React.FC<NavbarProps> = ({
         </div>
 
         {/* Right Controls: Actions, View Mode, Gear Settings */}
-        <div className="order-2 md:order-3 flex items-center gap-1 sm:gap-2 shrink-0">
-          {/* Demo Mode Auth Guard Simulator Toggle (Desktop shortcut) */}
+        <div className="order-2 md:order-3 flex items-center gap-1 sm:gap-1.5 shrink-0">
+          {/* Demo Mode Auth Guard Simulator Toggle */}
           {isDemoMode && (
             <button
               type="button"
               onClick={onToggleSimulateAuth}
               title={simulateAuthIntercept ? t('auth.demoToggleOn') : t('auth.demoToggleOff')}
-              className={`hidden lg:inline-flex items-center gap-1.5 px-2.5 py-1.5 rounded-xl text-xs font-medium border transition-all ${
+              className={`hidden xl:inline-flex items-center gap-1.5 px-2.5 py-1.5 rounded-xl text-xs font-medium border active:scale-95 transition-all ${
                 simulateAuthIntercept
                   ? 'bg-amber-500/10 text-amber-700 dark:text-amber-300 border-amber-500/30'
                   : 'bg-slate-100 dark:bg-slate-800 text-slate-600 dark:text-slate-400 border-transparent hover:border-slate-300 dark:hover:border-slate-700'
@@ -193,26 +222,39 @@ export const Navbar: React.FC<NavbarProps> = ({
             </button>
           )}
 
-          {/* Upload Button —— 只在登录且 dufs 允许写时出现 */}
+          {/* Upload Button */}
           {allowUpload && canWrite && (
             <button
               type="button"
               onClick={onTriggerUploadClick}
               title={t('toolbar.upload')}
-              className="inline-flex items-center justify-center gap-1.5 p-2 sm:px-3 sm:py-2 rounded-xl text-xs sm:text-sm font-medium bg-indigo-600 hover:bg-indigo-500 text-white shadow-sm shadow-indigo-500/20 transition-all cursor-pointer"
+              className="inline-flex items-center justify-center gap-1.5 p-2 sm:px-3 sm:py-2 rounded-xl text-xs sm:text-sm font-medium bg-indigo-600 hover:bg-indigo-500 text-white shadow-sm shadow-indigo-500/20 active:scale-95 transition-all cursor-pointer"
             >
               <Upload className="w-4 h-4 shrink-0" />
               <span className="hidden lg:inline">{t('toolbar.upload')}</span>
             </button>
           )}
 
-          {/* New Folder Button —— 同上 */}
+          {/* Paste Upload Button (Feature 1: Ctrl+V or Click) */}
+          {allowUpload && canWrite && (
+            <button
+              type="button"
+              onClick={onOpenPasteModal}
+              title={t('toolbar.pasteUpload')}
+              aria-label={t('toolbar.pasteUpload')}
+              className="inline-flex items-center justify-center gap-1.5 p-2 sm:px-2.5 sm:py-2 rounded-xl text-xs sm:text-sm font-medium bg-slate-100 hover:bg-slate-200/80 dark:bg-slate-800 dark:hover:bg-slate-700 text-slate-700 dark:text-slate-200 active:scale-95 transition-all"
+            >
+              <ClipboardPaste className="w-4 h-4 shrink-0" />
+            </button>
+          )}
+
+          {/* New Folder Button */}
           {allowUpload && canWrite && (
             <button
               type="button"
               onClick={onOpenMkdirModal}
               title={t('toolbar.newFolder')}
-              className="inline-flex items-center justify-center gap-1.5 p-2 sm:px-2.5 sm:py-2 rounded-xl text-xs sm:text-sm font-medium bg-slate-100 hover:bg-slate-200/80 dark:bg-slate-800 dark:hover:bg-slate-700 text-slate-700 dark:text-slate-200 transition-colors"
+              className="inline-flex items-center justify-center gap-1.5 p-2 sm:px-2.5 sm:py-2 rounded-xl text-xs sm:text-sm font-medium bg-slate-100 hover:bg-slate-200/80 dark:bg-slate-800 dark:hover:bg-slate-700 text-slate-700 dark:text-slate-200 active:scale-95 transition-all"
             >
               <FolderPlus className="w-4 h-4 shrink-0" />
               <span className="hidden xl:inline">{t('toolbar.newFolder')}</span>
@@ -221,14 +263,14 @@ export const Navbar: React.FC<NavbarProps> = ({
 
           <div className="h-5 w-px bg-slate-200 dark:bg-slate-800 mx-0.5 hidden sm:block" />
 
-          {/* List / Grid View Switcher (Persisted in localStorage) */}
+          {/* List / Grid View Switcher */}
           <div className="inline-flex items-center p-0.5 sm:p-1 rounded-xl bg-slate-100 dark:bg-slate-800 border border-slate-200/60 dark:border-slate-700/60">
             <button
               type="button"
               onClick={() => onViewModeChange('list')}
               title={t('toolbar.viewList')}
               aria-label={t('toolbar.viewList')}
-              className={`p-1.5 rounded-lg transition-all ${
+              className={`p-1.5 rounded-lg active:scale-90 transition-all ${
                 viewMode === 'list'
                   ? 'bg-white dark:bg-slate-900 text-indigo-600 dark:text-indigo-400 shadow-sm'
                   : 'text-slate-500 hover:text-slate-800 dark:text-slate-400 dark:hover:text-slate-200'
@@ -241,7 +283,7 @@ export const Navbar: React.FC<NavbarProps> = ({
               onClick={() => onViewModeChange('grid')}
               title={t('toolbar.viewGrid')}
               aria-label={t('toolbar.viewGrid')}
-              className={`p-1.5 rounded-lg transition-all ${
+              className={`p-1.5 rounded-lg active:scale-90 transition-all ${
                 viewMode === 'grid'
                   ? 'bg-white dark:bg-slate-900 text-indigo-600 dark:text-indigo-400 shadow-sm'
                   : 'text-slate-500 hover:text-slate-800 dark:text-slate-400 dark:hover:text-slate-200'
@@ -251,7 +293,7 @@ export const Navbar: React.FC<NavbarProps> = ({
             </button>
           </div>
 
-          {/* Gear Icon Settings Menu (Consolidates Language, Appearance Theme & Sign-In Status) */}
+          {/* Preferences Dropdown Menu */}
           <div className="relative" ref={settingsDropdownRef}>
             <button
               type="button"
@@ -259,7 +301,7 @@ export const Navbar: React.FC<NavbarProps> = ({
               title={t('toolbar.settings')}
               aria-label={t('toolbar.settings')}
               aria-expanded={settingsOpen}
-              className={`p-2 rounded-xl border transition-all ${
+              className={`p-2 rounded-xl border active:scale-95 transition-all ${
                 settingsOpen
                   ? 'bg-indigo-500/10 text-indigo-600 dark:text-indigo-400 border-indigo-500/30'
                   : 'bg-slate-100 hover:bg-slate-200/80 dark:bg-slate-800 dark:hover:bg-slate-700 text-slate-700 dark:text-slate-200 border-transparent'
@@ -273,18 +315,18 @@ export const Navbar: React.FC<NavbarProps> = ({
             </button>
 
             {settingsOpen && (
-              <div className="absolute right-0 mt-2 w-64 max-w-[calc(100vw-1.5rem)] rounded-2xl bg-white dark:bg-slate-900 shadow-xl border border-slate-200/90 dark:border-slate-800 p-3.5 z-50 space-y-4">
-                {/* Language Section: 系统 / 中文 / EN */}
-                <div className="space-y-2">
+              <div className="absolute right-0 mt-2 w-64 max-w-[calc(100vw-1.5rem)] rounded-2xl bg-white dark:bg-slate-900 shadow-xl border border-slate-200/90 dark:border-slate-800 p-3 z-50 space-y-2.5 origin-top-right animate-dropdownIn">
+                {/* 1. Language Section: 系统 / 中文 / EN */}
+                <div className="space-y-1.5">
                   <div className="flex items-center gap-1.5 text-xs font-semibold text-slate-500 dark:text-slate-400 px-0.5">
-                    <Globe className="w-3.5 h-3.5 text-indigo-500" />
+                    <Globe className="w-3.5 h-3.5 text-indigo-500 shrink-0" />
                     <span>{t('toolbar.language')}</span>
                   </div>
                   <div className="grid grid-cols-3 gap-1 p-1 rounded-xl bg-slate-100 dark:bg-slate-800/90 border border-slate-200/60 dark:border-slate-700/60">
                     <button
                       type="button"
                       onClick={() => onLanguagePreferenceChange('system')}
-                      className={`py-1.5 px-2 rounded-lg text-xs font-medium transition-all text-center ${
+                      className={`py-1 px-1.5 rounded-lg text-xs font-medium whitespace-nowrap active:scale-95 transition-all text-center ${
                         languagePreference === 'system'
                           ? 'bg-white dark:bg-slate-900 text-indigo-600 dark:text-indigo-400 shadow-sm font-semibold'
                           : 'text-slate-600 dark:text-slate-400 hover:text-slate-900 dark:hover:text-white'
@@ -295,7 +337,7 @@ export const Navbar: React.FC<NavbarProps> = ({
                     <button
                       type="button"
                       onClick={() => onLanguagePreferenceChange('zh')}
-                      className={`py-1.5 px-2 rounded-lg text-xs font-medium transition-all text-center ${
+                      className={`py-1 px-1.5 rounded-lg text-xs font-medium whitespace-nowrap active:scale-95 transition-all text-center ${
                         languagePreference === 'zh'
                           ? 'bg-white dark:bg-slate-900 text-indigo-600 dark:text-indigo-400 shadow-sm font-semibold'
                           : 'text-slate-600 dark:text-slate-400 hover:text-slate-900 dark:hover:text-white'
@@ -306,7 +348,7 @@ export const Navbar: React.FC<NavbarProps> = ({
                     <button
                       type="button"
                       onClick={() => onLanguagePreferenceChange('en')}
-                      className={`py-1.5 px-2 rounded-lg text-xs font-medium transition-all text-center ${
+                      className={`py-1 px-1.5 rounded-lg text-xs font-medium whitespace-nowrap active:scale-95 transition-all text-center ${
                         languagePreference === 'en'
                           ? 'bg-white dark:bg-slate-900 text-indigo-600 dark:text-indigo-400 shadow-sm font-semibold'
                           : 'text-slate-600 dark:text-slate-400 hover:text-slate-900 dark:hover:text-white'
@@ -319,17 +361,17 @@ export const Navbar: React.FC<NavbarProps> = ({
 
                 <div className="border-t border-slate-100 dark:border-slate-800" />
 
-                {/* Theme Section: 系统 / 亮色 / 暗黑 */}
-                <div className="space-y-2">
+                {/* 2. Appearance Section: 系统 / 浅色 / 深色 */}
+                <div className="space-y-1.5">
                   <div className="flex items-center gap-1.5 text-xs font-semibold text-slate-500 dark:text-slate-400 px-0.5">
-                    <Monitor className="w-3.5 h-3.5 text-indigo-500" />
+                    <Monitor className="w-3.5 h-3.5 text-indigo-500 shrink-0" />
                     <span>{t('toolbar.theme')}</span>
                   </div>
                   <div className="grid grid-cols-3 gap-1 p-1 rounded-xl bg-slate-100 dark:bg-slate-800/90 border border-slate-200/60 dark:border-slate-700/60">
                     <button
                       type="button"
                       onClick={() => onThemePreferenceChange('system')}
-                      className={`py-1.5 px-2 rounded-lg text-xs font-medium inline-flex items-center justify-center gap-1 transition-all ${
+                      className={`py-1 px-1.5 rounded-lg text-xs font-medium whitespace-nowrap inline-flex items-center justify-center gap-1 active:scale-95 transition-all ${
                         themePreference === 'system'
                           ? 'bg-white dark:bg-slate-900 text-indigo-600 dark:text-indigo-400 shadow-sm font-semibold'
                           : 'text-slate-600 dark:text-slate-400 hover:text-slate-900 dark:hover:text-white'
@@ -341,7 +383,7 @@ export const Navbar: React.FC<NavbarProps> = ({
                     <button
                       type="button"
                       onClick={() => onThemePreferenceChange('light')}
-                      className={`py-1.5 px-2 rounded-lg text-xs font-medium inline-flex items-center justify-center gap-1 transition-all ${
+                      className={`py-1 px-1.5 rounded-lg text-xs font-medium whitespace-nowrap inline-flex items-center justify-center gap-1 active:scale-95 transition-all ${
                         themePreference === 'light'
                           ? 'bg-white dark:bg-slate-900 text-indigo-600 dark:text-indigo-400 shadow-sm font-semibold'
                           : 'text-slate-600 dark:text-slate-400 hover:text-slate-900 dark:hover:text-white'
@@ -353,7 +395,7 @@ export const Navbar: React.FC<NavbarProps> = ({
                     <button
                       type="button"
                       onClick={() => onThemePreferenceChange('dark')}
-                      className={`py-1.5 px-2 rounded-lg text-xs font-medium inline-flex items-center justify-center gap-1 transition-all ${
+                      className={`py-1 px-1.5 rounded-lg text-xs font-medium whitespace-nowrap inline-flex items-center justify-center gap-1 active:scale-95 transition-all ${
                         themePreference === 'dark'
                           ? 'bg-white dark:bg-slate-900 text-indigo-600 dark:text-indigo-400 shadow-sm font-semibold'
                           : 'text-slate-600 dark:text-slate-400 hover:text-slate-900 dark:hover:text-white'
@@ -367,11 +409,32 @@ export const Navbar: React.FC<NavbarProps> = ({
 
                 <div className="border-t border-slate-100 dark:border-slate-800" />
 
-                {/* Preview & Safety Section: 缩略图（能力驱动）+ HTML 预览沙箱 */}
-                <div className="space-y-2">
-                  <div className="flex items-center gap-1.5 text-xs font-semibold text-slate-500 dark:text-slate-400 px-0.5">
-                    <ImageIcon className="w-3.5 h-3.5 text-indigo-500" />
-                    <span>{t('preview.sectionTitle')}</span>
+                {/* 3. Image Thumbnails Section (Embedded server capability status on header) */}
+                <div className="space-y-1.5">
+                  <div className="flex items-center justify-between text-xs px-0.5">
+                    <span className="inline-flex items-center gap-1.5 font-semibold text-slate-500 dark:text-slate-400">
+                      <ImageIcon className="w-3.5 h-3.5 text-indigo-500 shrink-0" />
+                      <span>{t('thumbs.sectionTitle')}</span>
+                    </span>
+                    <span
+                      title={t(
+                        thumbPreference === 'off'
+                          ? 'thumbs.hintOff'
+                          : serverThumbsAvailable
+                          ? 'thumbs.hintServer'
+                          : 'thumbs.hintClient'
+                      )}
+                      className="inline-flex items-center gap-1 text-[11px] text-slate-400 dark:text-slate-500"
+                    >
+                      <span
+                        className={`w-1.5 h-1.5 rounded-full shrink-0 ${
+                          serverThumbsAvailable
+                            ? 'bg-emerald-500/80'
+                            : 'bg-slate-300 dark:bg-slate-600'
+                        }`}
+                      />
+                      <span>{t(serverThumbsAvailable ? 'disk.capThumbsOn' : 'disk.capThumbsOff')}</span>
+                    </span>
                   </div>
 
                   <div className="grid grid-cols-3 gap-1 p-1 rounded-xl bg-slate-100 dark:bg-slate-800/90 border border-slate-200/60 dark:border-slate-700/60">
@@ -380,7 +443,7 @@ export const Navbar: React.FC<NavbarProps> = ({
                         key={mode}
                         type="button"
                         onClick={() => onThumbPreferenceChange(mode)}
-                        className={`py-1.5 px-1.5 rounded-lg text-xs font-medium transition-all text-center ${
+                        className={`py-1 px-1.5 rounded-lg text-xs font-medium whitespace-nowrap active:scale-95 transition-all text-center ${
                           thumbPreference === mode
                             ? 'bg-white dark:bg-slate-900 text-indigo-600 dark:text-indigo-400 shadow-sm font-semibold'
                             : 'text-slate-600 dark:text-slate-400 hover:text-slate-900 dark:hover:text-white'
@@ -390,93 +453,117 @@ export const Navbar: React.FC<NavbarProps> = ({
                       </button>
                     ))}
                   </div>
-                  <p className="text-[11px] leading-relaxed text-slate-400 dark:text-slate-500 px-0.5">
-                    {t(
-                      thumbPreference === 'off'
-                        ? 'thumbs.hintOff'
-                        : serverThumbsAvailable
-                        ? 'thumbs.hintServer'
-                        : thumbPreference === 'auto'
-                        ? 'thumbs.hintAutoNoServer'
-                        : 'thumbs.hintClient'
-                    )}
-                  </p>
-
-                  <button
-                    type="button"
-                    onClick={() => {
-                      if (htmlSandbox) {
-                        onRequestDisableSandbox();
-                      } else {
-                        onEnableSandbox();
-                      }
-                    }}
-                    className={`w-full flex items-center justify-between gap-2 px-3 py-2 rounded-xl text-xs font-medium border transition-all ${
-                      htmlSandbox
-                        ? 'bg-emerald-500/10 text-emerald-700 dark:text-emerald-300 border-emerald-500/30'
-                        : 'bg-amber-500/10 text-amber-700 dark:text-amber-300 border-amber-500/30'
-                    }`}
-                  >
-                    <span className="inline-flex items-center gap-1.5 min-w-0">
-                      <ShieldQuestion className="w-3.5 h-3.5 shrink-0" />
-                      <span className="truncate">{t('sandbox.settingLabel')}</span>
-                    </span>
-                    <span className="shrink-0 font-semibold">{t(htmlSandbox ? 'sandbox.stateOn' : 'sandbox.stateOff')}</span>
-                  </button>
-                  <p className="text-[11px] leading-relaxed text-slate-400 dark:text-slate-500 px-0.5">
-                    {t(htmlSandbox ? 'sandbox.hintOn' : 'sandbox.hintOff')}
-                  </p>
                 </div>
 
                 <div className="border-t border-slate-100 dark:border-slate-800" />
 
-                {/* Access & Sign-In Section (Clean: Status Badge + Re-check + Sign-In Button) */}
-                <div className="space-y-2">
-                  <div className="flex items-center gap-1.5 text-xs font-semibold text-slate-500 dark:text-slate-400 px-0.5">
-                    <ShieldCheck className="w-3.5 h-3.5 text-indigo-500" />
-                    <span>{t('access.sectionTitle')}</span>
-                  </div>
-
-                  <div
-                    className={`flex items-center justify-between gap-2 px-3 py-2 rounded-xl border text-xs font-medium ${accessStateTone}`}
-                  >
-                    <span className="inline-flex items-center gap-1.5 min-w-0">
-                      <span className="w-2 h-2 rounded-full bg-current shrink-0" />
-                      <span className="truncate">{accessStateLabel}</span>
-                    </span>
-                    {!isDemoMode && (
+                {/* 4. HTML Preview Sandbox Section (Compact single-row layout) */}
+                <div className="relative">
+                  <div className="flex items-center justify-between gap-2 px-0.5 py-0.5">
+                    <span className="inline-flex items-center gap-1.5 text-xs font-semibold text-slate-500 dark:text-slate-400">
+                      <ShieldQuestion className="w-3.5 h-3.5 text-indigo-500 shrink-0" />
+                      <span>{t('sandbox.settingLabel')}</span>
                       <button
                         type="button"
-                        onClick={onRecheckAuth}
-                        title={t('access.recheck')}
-                        className="p-1 rounded-lg hover:bg-black/5 dark:hover:bg-white/10 shrink-0"
+                        onClick={() => setSandboxHintOpen((v) => !v)}
+                        onMouseEnter={() => setSandboxHintOpen(true)}
+                        onMouseLeave={() => setSandboxHintOpen(false)}
+                        className="text-slate-400 hover:text-slate-600 dark:hover:text-slate-200"
+                        title={t('sandbox.bannerWhy')}
                       >
-                        <RefreshCw className="w-3.5 h-3.5" />
+                        <span className="inline-flex items-center justify-center w-3.5 h-3.5 rounded-full border border-current text-[10px] leading-none">
+                          ?
+                        </span>
                       </button>
-                    )}
-                  </div>
+                    </span>
 
-                  {(!isDemoMode ? authState === 'anonymous' : false) && (
                     <button
                       type="button"
-                      onClick={onLoginClick}
-                      className="w-full inline-flex items-center justify-center gap-1.5 px-3 py-2 rounded-xl text-xs font-semibold bg-indigo-600 hover:bg-indigo-500 text-white shadow-sm transition-colors"
+                      onClick={() => {
+                        if (htmlSandbox) {
+                          onRequestDisableSandbox();
+                        } else {
+                          onEnableSandbox();
+                        }
+                      }}
+                      className={`px-2 py-0.5 rounded-lg text-xs font-semibold active:scale-95 transition-all border ${
+                        htmlSandbox
+                          ? 'bg-emerald-500/10 text-emerald-700 dark:text-emerald-300 border-emerald-500/30'
+                          : 'bg-amber-500/10 text-amber-700 dark:text-amber-300 border-amber-500/30'
+                      }`}
                     >
-                      <LogIn className="w-3.5 h-3.5" />
-                      <span>{t('access.loginBtn')}</span>
+                      {t(htmlSandbox ? 'sandbox.stateOn' : 'sandbox.stateOff')}
                     </button>
+                  </div>
+
+                  {sandboxHintOpen && (
+                    <div className="absolute left-0 right-0 top-full mt-1.5 p-2.5 rounded-xl bg-white dark:bg-slate-800 border border-slate-200 dark:border-slate-700 shadow-xl text-[11px] leading-relaxed text-slate-600 dark:text-slate-300 z-20 animate-fadeIn">
+                      {t(htmlSandbox ? 'sandbox.hintOn' : 'sandbox.hintOff')}
+                    </div>
                   )}
                 </div>
 
-                {/* Mobile Demo Mode Auth Toggle inside Gear Settings */}
+                <div className="border-t border-slate-100 dark:border-slate-800" />
+
+                {/* 5. Compact Session Status & Storage Metrics */}
+                <div className="space-y-1.5">
+                  <div
+                    className={`flex items-center justify-between gap-1.5 px-2.5 py-1.5 rounded-xl border text-xs font-medium ${accessStateTone}`}
+                  >
+                    <span className="inline-flex items-center gap-1.5 min-w-0">
+                      <span className="w-1.5 h-1.5 rounded-full bg-current shrink-0" />
+                      <span className="truncate">{accessStateLabel}</span>
+                    </span>
+
+                    <div className="flex items-center gap-1 shrink-0">
+                      {(!isDemoMode ? authState === 'anonymous' : false) && (
+                        <button
+                          type="button"
+                          onClick={onLoginClick}
+                          className="px-2 py-0.5 rounded-lg text-xs font-semibold bg-indigo-600 hover:bg-indigo-500 text-white shadow-sm active:scale-95 transition-all inline-flex items-center gap-1"
+                        >
+                          <LogIn className="w-3 h-3" />
+                          <span>{t('access.loginBtn')}</span>
+                        </button>
+                      )}
+                      {!isDemoMode && (
+                        <button
+                          type="button"
+                          onClick={onRecheckAuth}
+                          title={t('access.recheck')}
+                          className="p-1 rounded-lg hover:bg-black/5 dark:hover:bg-white/10 active:scale-90 transition-transform shrink-0"
+                        >
+                          <RefreshCw className="w-3 h-3" />
+                        </button>
+                      )}
+                    </div>
+                  </div>
+
+                  {serverInfo && typeof serverInfo.free_bytes === 'number' && authState === 'authenticated' && (
+                    <div
+                      title={serverInfo.path || undefined}
+                      className="flex items-center gap-1.5 px-1 text-[11px] font-mono text-slate-400 dark:text-slate-500"
+                    >
+                      <HardDrive className="w-3 h-3 text-indigo-500 shrink-0" />
+                      <span className="truncate">
+                        {t('disk.compactMetric', {
+                          free: formatBytes(serverInfo.free_bytes),
+                          used: formatBytes(serverInfo.data_bytes ?? 0),
+                        })}
+                      </span>
+                    </div>
+                  )}
+                </div>
+
+                {/* Mobile Demo Mode Auth Toggle */}
                 {isDemoMode && (
                   <>
-                    <div className="border-t border-slate-100 dark:border-slate-800 lg:hidden" />
-                    <div className="lg:hidden">
+                    <div className="border-t border-slate-100 dark:border-slate-800 xl:hidden" />
+                    <div className="xl:hidden">
                       <button
                         type="button"
                         onClick={onToggleSimulateAuth}
-                        className={`w-full flex items-center justify-between px-3 py-2 rounded-xl text-xs font-medium border transition-all ${
+                        className={`w-full flex items-center justify-between px-2.5 py-1.5 rounded-xl text-xs font-medium border active:scale-95 transition-all ${
                           simulateAuthIntercept
                             ? 'bg-amber-500/10 text-amber-700 dark:text-amber-300 border-amber-500/30'
                             : 'bg-slate-100 dark:bg-slate-800 text-slate-600 dark:text-slate-400 border-transparent'

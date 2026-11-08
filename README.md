@@ -1,72 +1,100 @@
 # ✨ dufs-lume-ui
 
-**dufs-lume-ui** 是一个专为 Rust 轻量级静态文件服务器 [Dufs (`sigoden/dufs`)](https://github.com/sigoden/dufs) 设计的现代化、极简、美观的独立前端主题。它通过 Dufs 原生提供的 `--assets` 静态资源覆盖机制运行，无需修改或重新编译 Dufs 源码即可完全替换其默认的原生界面，并针对 [Caddy](https://caddyserver.com/docs/caddyfile/directives/forward_auth) + [TinyAuth](https://tinyauth.app/docs/community/caddy/) 反向代理鉴权架构进行了深度优化。
+**dufs-lume-ui** 是一个专为轻量级静态文件服务器 [Dufs (`sigoden/dufs`)](https://github.com/sigoden/dufs) 设计的现代化、响应式独立前端主题。它基于 Dufs 原生提供的 `--assets` 静态资源覆盖机制运行，无需修改或重新编译 Dufs 源码即可替换默认界面，并支持通过轻量级扩展接口（`/__lume__/info` 与 `/__lume__/thumb`）实现实时存储空间监控、服务端缩略图生成以及 [Caddy](https://caddyserver.com/docs/caddyfile/directives/forward_auth) + [TinyAuth](https://tinyauth.app/docs/community/caddy/) 反向代理鉴权集成。
 
 ## 🌟 核心特性
 
-- **双视图自由切换 (List & Grid View)**：支持传统表格列表视图与现代网格卡片视图一键切换，偏好自动持久化至 `localStorage`。
-- **丝滑浏览与快捷键多选**：
-  - 响应式面包屑导航（未登录访客自动锁定公开区 `/share/` 为顶层根）、快捷键 `/` 实时搜索过滤、按文件名/大小/修改时间升降序排列。
-  - 支持自定义居中复选框、网格卡片角标勾选与网格全选胶囊；支持 **`Ctrl` / `Cmd` + 点击**直接切换选择、**`Shift` + 点击**连续区间多选。
-  - 未勾选时走服务端 `?zip` 打包整目录；有勾选时在浏览器端基于 [fflate](https://github.com/1000tb/fflate) `ZipPassThrough` (STORE) 流式打包所选内容。
-  - 全屏拖拽流式上传（`HTTP PUT`），支持中途取消并自动补发 `DELETE` 清理大文件残留。
-- **在线富媒体与静态网站内嵌预览**：
-  - 支持图片、视频、音频、Markdown（渲染/源码双视图）、PDF 与代码/纯文本（深浅双色自适应语法高亮）弹窗预览，支持键盘 **`←` / `→` 方向键**快速切换上/下一个文件。
-  - `.html` / `.htm` 默认在**浏览器沙箱**内渲染（`srcdoc` + `sandbox="allow-scripts"`，不含 `allow-same-origin`）⇒ 页面脚本拿不到本站登录态与门禁区文件。要浏览依赖同目录资源的完整静态站点，可在提示条或偏好设置里**显式关闭沙箱**（需勾选确认，选择只存在当前浏览器）。
-  - 支持键盘 **`←` / `→` 方向键**快速切换上/下一个文件，Markdown/PDF/代码/纯文本（深浅双色自适应语法高亮）同样在弹窗内渲染。
-- **网格缩略图（服务端优先，前端兜底）**：偏好三态 `跟随服务器 / 始终显示 / 不显示`（存 `localStorage`）。
-  - 服务器在 `/__lume__/info` 里注册了 `thumbs` 能力 ⇒ 走 `/__lume__/thumb` 服务端缩放图；没注册 ⇒ 「始终显示」退回浏览器缩放原图（更耗流量），「跟随服务器」则不显示。
-  - **服务端能力变化不会改写用户设置**：只有从没设置过（`auto`）时才由能力位决定默认值。
-- **单次合并请求：登录态感知 + 实时磁盘空间 + 服务端能力位 (`/__lume__/info`)**：
-  - 启动时仅发送 **1 次 `GET /__lume__/info`**：被网关 `302/401` 拦截即判定为未登录访客；返回 `200 JSON` 则同时完成登录态确认、磁盘水位展示与能力发现（零落盘文件污染）。扩展 API 未部署时自动回退 `GET /?simple` 只探登录态。
-- **未登录自动进公开区**：配合 Caddy 把裸 `GET /` 的未登录请求 302 到 `/share/`，登录按钮指向 **`/?login=1`**（这个查询让请求保持受保护 ⇒ 由网关弹认证中心）。
-- **多语言 (i18n) 与系统主题跟随**：右上角齿轮设置面板内置中/英双语与亮色/暗黑模式，默认自动跟随系统。
+- **双视图无缝切换 (List & Grid View)**：
+  - 支持表格列表视图与现代网格卡片视图一键切换，偏好自动持久化至 `localStorage`。
+  - 面包屑导航栏内置快捷「返回上级」按钮（支持键盘 `Backspace` / `Alt + ↑`），未登录访客自动锁定公开目录（默认 `/share/`）为顶层根路径。
+  - **极致精简与空间释放**：列表视图下隐藏面包屑重复排序按钮，网格视图下收敛为单个极简排序胶囊；存储容量融入面包屑统计，仅在空间紧张时弹出告警条，释放大量导航宽度。
+- **快捷键交互与全能多选**：
+  - **键盘巡航与 Space 瞬时预览**：支持方向键 `↑ / ↓ / ← / →` 在文件项之间无缝移动焦点（自动滚动可视区），按 **`Space`（空格键）** 一秒打开/关闭预览弹窗，按 `Enter` 快速打开。
+  - **剪贴板直接粘贴上传 (`Ctrl / Cmd + V`)**：页面任意位置复制截图或文本代码后按快捷键，自动弹出重命名与预览对话框，确认后直接流式上传。
+  - 支持表头全选、半选状态、网格全选胶囊以及 `Ctrl` / `Cmd` + 点击单选、`Shift` + 点击连续区间多选。
+  - 未勾选条目时调用 Dufs 原生 `?zip` 打包当前目录；勾选条目后在浏览器端基于 [fflate](https://github.com/1000tb/fflate) `ZipPassThrough` (STORE) 流式生成 ZIP 归档。
+  - 全屏拖拽流式上传（`HTTP PUT`），中途取消上传时自动补发 `HTTP DELETE` 清理服务端未完成的残留文件。
+- **富媒体、沙箱隔离与音频迷你播放器**：
+  - **后台悬浮迷你音频播放器**：试听音频文件时可一键收起至右下角悬浮播放胶囊（支持暂停、同目录自动切歌与展开），跨目录浏览不中断。
+  - **静态网站「一键浏览站点」**：当前目录包含 `index.html` 时自动在面包屑旁高亮展示「浏览站点」按钮，一键进入网页视图。
+  - 内置图片、视频、音频、Markdown（渲染/源码双视图）、PDF 与代码语法高亮预览弹窗，支持键盘 **`←` / `→` 方向键**快速切换上/下一个文件。
+  - `.html` / `.htm` 默认在**隔离沙箱**内渲染（`srcdoc` + `sandbox="allow-scripts"`，不含 `allow-same-origin`），防止不可信页面脚本访问站点凭据或私有文件；如需浏览依赖同目录相对资源的完整静态站点，可在预览提示条或偏好设置中经二次确认后关闭沙箱。
+- **自适应图片缩略图（自动 / 开启 / 关闭）**：
+  - 偏好设置提供 `自动 / 开启 / 关闭` 三态切换（持久化于 `localStorage`），并在标题右侧对齐内嵌当前服务端的处理能力状态（服务端缩放 / 仅原图缩放）。
+  - 当服务端 `/__lume__/info` 注册了缩略图能力时，自动通过 `/__lume__/thumb` 加载轻量化缩放图；未配置图像工具链时可按需回退至浏览器原图缩放或仅展示文件图标。
+- **单次合并探测 (`/__lume__/info`)**：
+  - 页面初始化时仅发送 **1 次 `GET /__lume__/info`**：若被鉴权网关拦截（`302/401`）则自动切换为公开只读访客模式；若返回 `200 JSON` 则同时完成登录态确认、实时磁盘可用空间展示与服务端能力发现，不在数据目录写入任何隐藏文件。上传与删除操作后自动静默更新。
+- **现代微动效与运行时品牌定制**：
+  - 弹窗、下拉菜单与 Toast 均采用 `cubic-bezier(0.16, 1, 0.3, 1)` 物理曲线过渡，支持卡片悬浮上浮与图片缩放动效。
+  - 支持通过 Docker 环境变量（`LUME_TITLE`、`LUME_SUBTITLE`、`LUME_ICON`、`LUME_LOGIN_URL`）在容器启动时注入站点品牌信息，无需重新编译前端。
+  - 内置简体中文 / 英文双语及浅色 / 深色主题，默认跟随系统设置。
 
 ## 📁 项目目录结构
 
 ```text
 dufs-lume-ui/
-├── index.html                        # HTML 入口（内置 __INDEX_DATA__ 与 __ASSETS_PREFIX__ 注入点）
+├── index.html                        # HTML 入口（含 Dufs 注入占位符与运行时品牌配置节点）
 ├── package.json                      # 依赖管理与构建脚本
-├── vite.config.ts                    # Vite 扁平化构建（含 content hash）与 __ASSETS_PREFIX__ 插件
+├── vite.config.ts                    # Vite 构建配置与 __ASSETS_PREFIX__ 路径重写插件
 ├── public/
-│   └── favicon.svg                   # 通用站点图标（映射至 __ASSETS_PREFIX__favicon.svg；部署方可用同名文件覆盖成自己的品牌）
+│   └── favicon.svg                   # 默认站点图标
+├── docker/
+│   ├── compose.yaml                  # Docker Compose 一键编排（Dufs + 扩展 API + Caddy 同源入口）
+│   ├── Dockerfile.ui                 # 前端构建与 Dufs 运行时镜像定义
+│   ├── Dockerfile.api                # 扩展 API（socat + libvips/ImageMagick）镜像定义
+│   ├── entrypoint-ui.sh              # 容器启动品牌注入脚本
+│   ├── Caddyfile                     # 容器内同源反代配置
+│   └── .env.example                  # 环境变量配置模板
 ├── scripts/
-│   └── lume-info-api.sh              # 极简扩展 API 脚本（/__lume__/info + /__lume__/thumb 共用一条管道）
+│   └── lume-info-api.sh              # POSIX sh 扩展接口脚本（服务 /__lume__/info 与 /__lume__/thumb）
 ├── docs/
-│   └── deployment-and-lume-api.md    # 进阶部署、Unix Socket 配置、缩略图端点安全约束与理论性能分析
+│   └── deployment-and-lume-api.md    # 进阶部署、Unix Socket 配置、安全约束与性能分析文档
 └── src/
-    ├── App.tsx                       # 主应用状态编排：合并探测、目录约束、多选与上传管理
-    ├── i18n.ts                       # i18next 初始化与系统语言自动检测
+    ├── App.tsx                       # 主应用状态编排：合并探测、键盘巡航、粘贴上传与迷你播放器
+    ├── i18n.ts                       # i18next 国际化初始化
     ├── locales/                      # 简体中文 (zh.json) 与英文 (en.json) 语言包
-    ├── types/dufs.ts                 # Dufs 数据结构、登录态与磁盘水位类型定义
-    ├── utils/format.ts               # 字节/时间格式化、预览分类、目录路径归一化
+    ├── types/dufs.ts                 # TypeScript 类型定义
+    ├── utils/format.ts               # 字节/时间格式化、文件分类与路径归一化工具
     ├── services/
-    │   ├── dufsApi.ts                # Base64 解码、HTTP/WebDAV 接口、/__lume__/info 合并探测与缩略图 URL
-    │   └── zipSelection.ts           # 客户端流式 ZIP：勾选条目递归展开 + fflate STORE 打包
-    └── components/                   # Navbar / Breadcrumbs / ZipButton / FileExplorer / MediaPreviewModal 等
+    │   ├── dufsApi.ts                # Dufs 接口封装、合并探测与缩略图 URL 构建
+    │   └── zipSelection.ts           # 客户端流式 ZIP 归档实现
+    └── components/                   # 界面组件（Navbar / Breadcrumbs / FileExplorer / MediaPreviewModal 等）
 ```
 
-## 🚀 本地开发与构建命令
+## 🚀 本地开发与构建
 
 ```bash
 # 1. 安装依赖
 pnpm install
 
-# 2. 启动本地开发服务器（自动进入内置可交互演示模式）
+# 2. 启动开发服务器（自动进入内置可交互演示模式）
 pnpm run dev
 
-# 3. 编译生产环境静态资源包（输出至 ./dist 目录）
+# 3. 构建生产环境静态资源（输出至 ./dist 目录）
 pnpm run build
 ```
 
-## 📦 快速部署（Dufs + Caddy + TinyAuth）
+## 🐳 Docker Compose 快速部署
+
+`docker/` 目录提供了开箱即用的三容器同源编排方案（`dufs` + `lume-info-api` + `caddy`）：
+
+```bash
+cd docker
+cp .env.example .env
+# 编辑 .env 中的 DATA_DIR（宿主机数据目录）与 LUME_HTTP_PORT（对外端口）
+docker compose up -d --build
+```
+
+- **品牌定制**：在 `.env` 中设置 `LUME_TITLE`、`LUME_SUBTITLE`、`LUME_ICON`、`LUME_LOGIN_URL`，重启容器即可生效，无需重新编译前端。
+- **Dufs 原生参数透传**：Dufs 0.47+ 支持通过 `DUFS_*` 环境变量配置所有命令行参数（如 `DUFS_ALLOW_UPLOAD=true`、`DUFS_ALLOW_DELETE=true`、`DUFS_ALLOW_SEARCH=true`、`DUFS_ALLOW_ARCHIVE=true`）。
+
+## 📦 宿主机原生部署（Dufs + Caddy + TinyAuth）
 
 1. **启动 Dufs 并挂载构建产物**：
    ```bash
    dufs /var/lib/dufs -A --assets /path/to/dufs-lume-ui/dist -p 5000
    ```
-2. **启动扩展 API 脚本（Unix Domain Socket 零端口占用）**：
+2. **启动扩展接口服务（Unix Domain Socket 零端口占用）**：
    ```bash
    sudo cp scripts/lume-info-api.sh /usr/local/sbin/lume-info-api.sh
    sudo chmod 0755 /usr/local/sbin/lume-info-api.sh
@@ -74,7 +102,7 @@ pnpm run build
      socat UNIX-LISTEN:/run/lume-info.sock,fork,reuseaddr,mode=0660,group=caddy \
      EXEC:/usr/local/sbin/lume-info-api.sh
    ```
-   > 缩略图需要系统里有图像工具链（`libvips-tools` 或 ImageMagick）。没有时 `/__lume__/thumb` 返回 503、`info` 的 `thumbs` 自动报 `false`，前端退回原图预览，**不用改任何配置**。
+   > 服务端缩略图依赖 `libvips-tools`（`vipsthumbnail`）或 ImageMagick（`convert`）。若宿主机未安装图像工具链，`/__lume__/info` 中的 `thumbs` 字段将自动返回 `false`，前端将平滑降级，无需修改任何配置。
 3. **配置 `Caddyfile`**：
    ```caddyfile
    files.example.com {
@@ -90,7 +118,6 @@ pnpm run build
                copy_headers Remote-User Remote-Email Remote-Name
            }
 
-           # info 与 thumb 共用一个 socket，脚本按请求行分流
            handle /__lume__/* {
                reverse_proxy unix//run/lume-info.sock
            }
@@ -104,8 +131,8 @@ pnpm run build
    }
    ```
 
-> 📖 **进阶文档**：关于 **扩展 API 能力位与缩略图端点的安全约束**、**方案 A (`socat` + Unix Socket)**、**方案 B (`systemd.socket` 0 常驻进程按需激活)**、**方案 C（TCP 端口）** 的详细配置步骤、**理论性能消耗对比（含 `df -B1` vs `du -sb` 开销解析）** 以及 **Dufs 换皮发布避坑指南**，请查阅 **[`docs/deployment-and-lume-api.md`](./docs/deployment-and-lume-api.md)**。
+> 📖 **进阶部署文档**：关于扩展 API 响应规范、缩略图安全边界、三种监听模式（`socat` Unix Socket / `systemd.socket` 按需激活 / TCP 端口）的性能对比及运维注意事项，请参阅 **[`docs/deployment-and-lume-api.md`](./docs/deployment-and-lume-api.md)**。
 
 ## 📄 开源协议
 
-本项目遵循 [MIT License](./LICENSE) 开源协议。
+本项目基于 [MIT License](./LICENSE) 开源发布。
