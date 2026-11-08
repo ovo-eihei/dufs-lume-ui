@@ -1,10 +1,19 @@
 {
   "name": "dufs-lume-ui",
   "private": false,
-  "version": "0.2.0",
+  "version": "0.3.0",
   "description": "A modern, minimalist, and luminous standalone frontend theme for Dufs file server (--assets) with Caddy + TinyAuth integration.",
   "type": "module",
   "license": "MIT",
+  "author": "ovo-eihei",
+  "repository": {
+    "type": "git",
+    "url": "git+https://github.com/ovo-eihei/dufs-lume-ui.git"
+  },
+  "homepage": "https://github.com/ovo-eihei/dufs-lume-ui#readme",
+  "bugs": {
+    "url": "https://github.com/ovo-eihei/dufs-lume-ui/issues"
+  },
   "keywords": [
     "dufs",
     "dufs-theme",
