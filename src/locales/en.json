@@ -60,7 +60,10 @@
     "cancel": "Cancel",
     "confirmDelete": "Delete",
     "select": "Select",
-    "selectAll": "Select All"
+    "selectAll": "Select All",
+    "showing": "Showing {{shown}} of {{total}}",
+    "loadMore": "Load {{n}} more",
+    "allLoaded": "All {{total}} items loaded"
   },
   "selection": {
     "summary": "{{count}} selected · {{size}} total",

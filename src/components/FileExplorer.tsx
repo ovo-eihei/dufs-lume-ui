@@ -1,4 +1,4 @@
-import React, { useState } from 'react';
+import React, { useEffect, useRef, useState } from 'react';
 import { useTranslation } from 'react-i18next';
 import {
   CornerLeftUp,
@@ -28,6 +28,15 @@ import { FileIconBadge } from './FileIconBadge';
 
 const GRID_THUMB_WIDTH = 256;
 const LIST_THUMB_WIDTH = 128;
+
+/**
+ * Window size for paint-only rendering. dufs returns every entry of a directory in one
+ * `__INDEX_DATA__` payload (no paging parameters upstream), so a folder with thousands of
+ * files would otherwise put thousands of rows/cards in the DOM at once. We paint the first
+ * `PAGE_SIZE`, then extend on scroll (IntersectionObserver) or on click. Selection, sort,
+ * search, "select all" and ZIP still work on the full `items` array — only the paint is capped.
+ */
+const PAGE_SIZE = 200;
 
 export const SelectionCheckbox: React.FC<{
   checked: boolean;
@@ -128,6 +137,65 @@ export const FileExplorer: React.FC<FileExplorerProps> = ({
   const [copiedName, setCopiedName] = useState<string | null>(null);
   const [thumbFallbacks, setThumbFallbacks] = useState<Record<string, 'client' | 'none'>>({});
 
+  /* ---- windowed rendering (see PAGE_SIZE) ---- */
+  const [visibleCount, setVisibleCount] = useState(PAGE_SIZE);
+  const sentinelRef = useRef<HTMLDivElement | null>(null);
+
+  // A new item set (directory / search / sort / view mode) starts from page one again.
+  useEffect(() => {
+    setVisibleCount(PAGE_SIZE);
+  }, [items, viewMode]);
+
+  const visibleItems = visibleCount >= items.length ? items : items.slice(0, visibleCount);
+  const remaining = items.length - visibleItems.length;
+
+  // Keyboard focus walking past the loaded window must reveal the row it lands on.
+  useEffect(() => {
+    if (focusedIndex >= visibleCount) {
+      setVisibleCount(focusedIndex + PAGE_SIZE);
+    }
+  }, [focusedIndex, visibleCount]);
+
+  useEffect(() => {
+    const el = sentinelRef.current;
+    if (!el || remaining <= 0 || typeof IntersectionObserver === 'undefined') return;
+    const io = new IntersectionObserver(
+      (entries) => {
+        if (entries.some((entry) => entry.isIntersecting)) {
+          setVisibleCount((current) => Math.min(items.length, current + PAGE_SIZE));
+        }
+      },
+      { rootMargin: '800px 0px' }
+    );
+    io.observe(el);
+    return () => io.disconnect();
+  }, [remaining, items.length]);
+
+  const loadMore = () => setVisibleCount((current) => Math.min(items.length, current + PAGE_SIZE));
+
+  const windowFooter =
+    remaining > 0 ? (
+      <div
+        ref={sentinelRef}
+        className="flex flex-wrap items-center justify-center gap-3 py-4 text-xs text-slate-500 dark:text-slate-400"
+      >
+        <span className="font-mono">
+          {t('file.showing', { shown: visibleItems.length, total: items.length })}
+        </span>
+        <button
+          type="button"
+          onClick={loadMore}
+          className="px-3 py-1.5 rounded-xl border border-slate-200/80 dark:border-slate-700/70 bg-white dark:bg-slate-900 font-medium text-slate-700 dark:text-slate-200 hover:border-indigo-400 active:scale-95 transition-all"
+        >
+          {t('file.loadMore', { n: Math.min(remaining, PAGE_SIZE) })}
+        </button>
+      </div>
+    ) : items.length > PAGE_SIZE ? (
+      <div className="py-3 text-center text-[11px] font-mono text-slate-400 dark:text-slate-500">
+        {t('file.allLoaded', { total: items.length })}
+      </div>
+    ) : null;
+
   const resolveThumbSrc = (
     item: DufsPathItem,
     width = GRID_THUMB_WIDTH,
@@ -222,8 +290,9 @@ export const FileExplorer: React.FC<FileExplorerProps> = ({
     const anySelectedMode = someSelected;
 
     return (
+      <>
       <div className="grid grid-cols-1 sm:grid-cols-2 md:grid-cols-3 lg:grid-cols-4 gap-3 sm:gap-3.5 pb-16 animate-fadeIn">
-        {items.map((item, idx) => {
+        {visibleItems.map((item, idx) => {
           const isDir = isDirectory(item);
           const isCopied = copiedName === item.name;
           const isSelected = selectedNames.has(item.name);
@@ -354,6 +423,8 @@ export const FileExplorer: React.FC<FileExplorerProps> = ({
           );
         })}
       </div>
+      {windowFooter}
+      </>
     );
   }
 
@@ -452,7 +523,7 @@ export const FileExplorer: React.FC<FileExplorerProps> = ({
             </tr>
           )}
 
-          {items.map((item, idx) => {
+          {visibleItems.map((item, idx) => {
             const isDir = isDirectory(item);
             const isCopied = copiedName === item.name;
             const isSelected = selectedNames.has(item.name);
@@ -566,6 +637,7 @@ export const FileExplorer: React.FC<FileExplorerProps> = ({
           })}
         </tbody>
       </table>
+      {windowFooter}
     </div>
   );
 };
