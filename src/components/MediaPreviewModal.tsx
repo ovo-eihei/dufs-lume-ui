@@ -474,25 +474,26 @@ export const MediaPreviewModal: React.FC<MediaPreviewModalProps> = ({
         onClick={(e) => e.stopPropagation()}
       >
         {/* Top Header */}
-        <div className="px-3 sm:px-5 py-2.5 sm:py-3 border-b border-slate-200 dark:border-slate-800 bg-slate-50/70 dark:bg-slate-900/60 shrink-0">
-          {/* Row 1: the name owns the full header width */}
-          <div className="flex items-center gap-2 min-w-0">
-            <FileIconBadge item={activeItem} size="sm" />
-            <h3
-              dir="auto"
-              title={activeItem.name}
-              className="min-w-0 truncate font-semibold text-sm sm:text-base text-slate-900 dark:text-white"
-            >
-              {activeItem.name}
-            </h3>
-          </div>
+        <div className="relative px-3 pr-12 py-2.5 sm:px-5 sm:pr-14 sm:py-3 border-b border-slate-200 dark:border-slate-800 bg-slate-50/70 dark:bg-slate-900/60 shrink-0">
+          <div className="flex flex-wrap items-center gap-x-3 gap-y-1.5">
+            {/* Title block: icon + name, size/mtime directly under the name */}
+            <div className="flex min-w-[13rem] flex-1 items-center gap-2 sm:gap-2.5">
+              <FileIconBadge item={activeItem} size="sm" />
+              <div className="min-w-0">
+                <h3
+                  dir="auto"
+                  title={activeItem.name}
+                  className="truncate font-semibold text-sm sm:text-base text-slate-900 dark:text-white"
+                >
+                  {activeItem.name}
+                </h3>
+                <p className="mt-0.5 truncate whitespace-nowrap text-xs text-slate-500 dark:text-slate-400">
+                  {formatBytes(activeItem.size)} · {formatDateTime(activeItem.mtime, i18n.language)}
+                </p>
+              </div>
+            </div>
 
-          {/* Row 2: meta on the left, actions on the right */}
-          <div className="mt-2 flex items-center justify-between gap-2">
-            <p className="min-w-0 truncate whitespace-nowrap text-xs text-slate-500 dark:text-slate-400">
-              {formatBytes(activeItem.size)} · {formatDateTime(activeItem.mtime, i18n.language)}
-            </p>
-
+            {/* Actions: beside the title when there is room, wrapped right-aligned otherwise */}
             <div className="flex items-center gap-1 sm:gap-1.5 shrink-0">
               {(hasPrev || hasNext) && (
                 <div className="inline-flex items-center p-0.5 rounded-xl bg-slate-100 dark:bg-slate-800 border border-slate-200/60 dark:border-slate-700/60">
@@ -600,16 +601,19 @@ export const MediaPreviewModal: React.FC<MediaPreviewModalProps> = ({
                 </a>
               )}
 
-              <button
-                type="button"
-                onClick={handleCloseOrMinimize}
-                title={t('preview.close')}
-                className="p-2 rounded-xl text-slate-500 hover:text-slate-900 dark:text-slate-400 dark:hover:text-white hover:bg-slate-100 dark:hover:bg-slate-800 active:scale-90 transition-all"
-              >
-                <X className="w-4 h-4" />
-              </button>
             </div>
           </div>
+
+          {/* Close stays pinned in the true top-right corner */}
+          <button
+            type="button"
+            onClick={handleCloseOrMinimize}
+            title={t('preview.close')}
+            aria-label={t('preview.close')}
+            className="absolute right-2 top-2 sm:right-3 sm:top-3 p-2 rounded-xl text-slate-500 hover:text-slate-900 dark:text-slate-400 dark:hover:text-white hover:bg-slate-100 dark:hover:bg-slate-800 active:scale-90 transition-all"
+          >
+            <X className="w-4 h-4" />
+          </button>
         </div>
 
         {/* Modal Body */}
