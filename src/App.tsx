@@ -253,7 +253,7 @@ export default function App() {
     isDemoMode
       ? {
           generated_at: new Date().toISOString(),
-          path: '/var/lib/dufs',
+          path: '/data',
           free_bytes: 68719476736, // 64 GiB
           data_bytes: 4294967296, // 4 GiB
           thumbs: { enabled: true, widths: [128, 256, 512] },
