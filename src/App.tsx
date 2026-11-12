@@ -63,6 +63,7 @@ import { FileExplorer } from './components/FileExplorer';
 import { MediaPreviewModal } from './components/MediaPreviewModal';
 import { AuthPromptModal } from './components/AuthPromptModal';
 import {
+  AudioBridge,
   DeleteConfirmModal,
   DragDropOverlay,
   MiniAudioPlayer,
@@ -1254,20 +1255,62 @@ export default function App() {
     [isDemoMode, indexData.uri_prefix, indexData.href]
   );
 
-  const handleMinimizeAudio = (item: DufsPathItem, audioUrl: string, startTime = 0) => {
-    setActiveAudioItem(item);
-    setActiveAudioUrl(audioUrl);
-    setPreviewItem(null);
-    setIsAudioPlaying(true);
-    setTimeout(() => {
-      if (globalAudioRef.current) {
-        if (startTime > 0) {
-          globalAudioRef.current.currentTime = startTime;
-        }
-        globalAudioRef.current.play().catch(() => {});
+  /** 换曲时是否要在 src 就绪后自动接上播放（元素上不再写 autoPlay，播放意图由我们控制） */
+  const pendingPlayRef = useRef(false);
+
+  /**
+   * 全站唯一的音频引擎：迷你播放器与详情弹窗读的都是这一个 <audio> 的状态。
+   * 同一首重复装载 = 什么都不做（位置与播放状态原样保留），所以「展开」不会从头播放。
+   */
+  const loadAudioTrack = useCallback(
+    (item: DufsPathItem, autoplay: boolean) => {
+      const el = globalAudioRef.current;
+      if (activeAudioItem?.name === item.name && activeAudioUrl) {
+        if (autoplay && el?.paused) el.play().catch(() => {});
+        return;
       }
-    }, 50);
-  };
+      setActiveAudioItem(item);
+      setActiveAudioUrl(resolveAudioSrc(item));
+      setAudioCurrentTime(0);
+      setAudioDuration(0);
+      pendingPlayRef.current = autoplay;
+    },
+    [activeAudioItem, activeAudioUrl, resolveAudioSrc]
+  );
+
+  // src 变更后按播放意图决定是否接上播
+  useEffect(() => {
+    const el = globalAudioRef.current;
+    if (!el || !activeAudioUrl || !pendingPlayRef.current) return;
+    pendingPlayRef.current = false;
+    el.play().catch(() => {});
+  }, [activeAudioUrl]);
+
+  // 详情弹窗打开的是音频 ⇒ 把这一首装进播放器：之前正在播就继续播，没播就停在 0 等用户按
+  const lastLoadedPreviewAudioRef = useRef<string | null>(null);
+  useEffect(() => {
+    const isAudio =
+      !!previewItem && !isDirectory(previewItem) && getPreviewCategory(previewItem.name) === 'audio';
+    if (!previewItem || !isAudio) {
+      lastLoadedPreviewAudioRef.current = null;
+      return;
+    }
+    if (lastLoadedPreviewAudioRef.current === previewItem.name) return;
+    lastLoadedPreviewAudioRef.current = previewItem.name;
+    loadAudioTrack(previewItem, Boolean(globalAudioRef.current && !globalAudioRef.current.paused));
+  }, [previewItem, loadAudioTrack]);
+
+  /** 关闭弹窗：只是点开看过、一帧没播 ⇒ 不把它留在后台播放器里 */
+  const closePreview = useCallback(() => {
+    setPreviewItem(null);
+    const el = globalAudioRef.current;
+    if (el && el.paused && el.currentTime === 0) {
+      setActiveAudioItem(null);
+      setActiveAudioUrl('');
+      setAudioCurrentTime(0);
+      setAudioDuration(0);
+    }
+  }, []);
 
   const toggleGlobalAudioPlay = () => {
     if (!globalAudioRef.current) return;
@@ -1298,24 +1341,52 @@ export default function App() {
   }, [activeAudioItem, audioFiles]);
 
   const handlePrevAudio = () => {
-    if (currentAudioIndex > 0) {
-      const nextItem = audioFiles[currentAudioIndex - 1];
-      setActiveAudioItem(nextItem);
-      setActiveAudioUrl(resolveAudioSrc(nextItem));
-      setAudioCurrentTime(0);
-      setIsAudioPlaying(true);
-    }
+    if (currentAudioIndex > 0) loadAudioTrack(audioFiles[currentAudioIndex - 1], true);
   };
 
   const handleNextAudio = () => {
     if (currentAudioIndex >= 0 && currentAudioIndex < audioFiles.length - 1) {
-      const nextItem = audioFiles[currentAudioIndex + 1];
-      setActiveAudioItem(nextItem);
-      setActiveAudioUrl(resolveAudioSrc(nextItem));
-      setAudioCurrentTime(0);
-      setIsAudioPlaying(true);
+      loadAudioTrack(audioFiles[currentAudioIndex + 1], true);
     }
   };
+
+  /**
+   * 详情弹窗的音频面板 = 全站唯一引擎的遥控器。
+   * 弹窗显示的不是音频时为 null（此时由迷你播放器接管显示，两者永远只有一个在展示同一首）。
+   */
+  const audioBridge: AudioBridge | null = useMemo(() => {
+    if (!previewItem || isDirectory(previewItem) || getPreviewCategory(previewItem.name) !== 'audio') {
+      return null;
+    }
+    return {
+      trackName: previewItem.name,
+      isPlaying: isAudioPlaying,
+      currentTime: audioCurrentTime,
+      duration: audioDuration,
+      onTogglePlay: toggleGlobalAudioPlay,
+      onSeek: (time: number) => {
+        if (globalAudioRef.current) {
+          globalAudioRef.current.currentTime = time;
+          setAudioCurrentTime(time);
+        }
+      },
+      onPrev: currentAudioIndex > 0 ? handlePrevAudio : undefined,
+      onNext:
+        currentAudioIndex >= 0 && currentAudioIndex < audioFiles.length - 1
+          ? handleNextAudio
+          : undefined,
+    };
+  }, [
+    previewItem,
+    isAudioPlaying,
+    audioCurrentTime,
+    audioDuration,
+    toggleGlobalAudioPlay,
+    currentAudioIndex,
+    audioFiles,
+    handlePrevAudio,
+    handleNextAudio,
+  ]);
 
   /* ======================= Auth Redirect & Session Check ======================= */
   const resolvedLoginUrl = useMemo(
@@ -1458,7 +1529,6 @@ export default function App() {
         <audio
           ref={globalAudioRef}
           src={activeAudioUrl}
-          autoPlay
           onTimeUpdate={(e) => setAudioCurrentTime(e.currentTarget.currentTime)}
           onLoadedMetadata={(e) => setAudioDuration(e.currentTarget.duration || 0)}
           onEnded={() => {
@@ -1581,6 +1651,8 @@ export default function App() {
         onRequestDisableSandbox={requestDisableSandbox}
         hasPrev={currentPreviewIndex > 0}
         hasNext={currentPreviewIndex >= 0 && currentPreviewIndex < previewableItems.length - 1}
+        navIndex={currentPreviewIndex}
+        navCount={previewableItems.length}
         onPrev={() => {
           if (currentPreviewIndex > 0) {
             setPreviewItem(previewableItems[currentPreviewIndex - 1]);
@@ -1591,10 +1663,10 @@ export default function App() {
             setPreviewItem(previewableItems[currentPreviewIndex + 1]);
           }
         }}
-        onClose={() => setPreviewItem(null)}
+        onClose={closePreview}
         blockAutoPlay={isAudioPlaying}
         onMediaPlay={pauseGlobalAudio}
-        onMinimizeAudio={handleMinimizeAudio}
+        audio={audioBridge}
         onCopyLink={handleCopyDirectLink}
         onDownload={handleDownloadItem}
       />
@@ -1673,7 +1745,8 @@ export default function App() {
         onCancelTask={handleCancelUpload}
       />
 
-      {/* Floating Mini Audio Player */}
+      {/* Floating Mini Audio Player —— 弹窗里有音频面板时不重复出现（同一个引擎、同一份状态） */}
+      {!audioBridge && (
       <MiniAudioPlayer
         item={activeAudioItem}
         isPlaying={isAudioPlaying}
@@ -1689,10 +1762,8 @@ export default function App() {
         onPrev={currentAudioIndex > 0 ? handlePrevAudio : undefined}
         onNext={currentAudioIndex >= 0 && currentAudioIndex < audioFiles.length - 1 ? handleNextAudio : undefined}
         onExpand={() => {
-          if (activeAudioItem) {
-            if (globalAudioRef.current) globalAudioRef.current.pause();
-            setPreviewItem(activeAudioItem);
-          }
+          // 同一个引擎，展开只是换一套控件：不暂停、不重载、位置不动
+          if (activeAudioItem) setPreviewItem(activeAudioItem);
         }}
         onClose={() => {
           if (globalAudioRef.current) globalAudioRef.current.pause();
@@ -1703,6 +1774,7 @@ export default function App() {
           setAudioDuration(0);
         }}
       />
+      )}
 
       {toastMessage && (
         <div className="fixed bottom-5 left-1/2 -translate-x-1/2 z-50 max-w-[90vw] truncate px-4 py-2.5 rounded-xl bg-slate-900 dark:bg-white text-white dark:text-slate-900 text-xs font-medium shadow-2xl border border-slate-700/50 animate-slideUp">

@@ -780,3 +780,90 @@ export const SandboxDisableConfirmModal: React.FC<SandboxDisableConfirmModalProp
     </div>
   );
 };
+
+/* ======================= 8. 详情弹窗里的音频面板（受控 UI，不自建 <audio>） ======================= */
+
+/**
+ * 全站只有 App 根部那一个 <audio> 元素在播（迷你播放器与弹窗共用它）。
+ * 弹窗这边只画控件、只读状态、只发指令，所以「展开/收起」不会重头播放。
+ */
+export interface AudioBridge {
+  trackName: string;
+  isPlaying: boolean;
+  currentTime: number;
+  duration: number;
+  onTogglePlay: () => void;
+  onSeek: (time: number) => void;
+  onPrev?: () => void;
+  onNext?: () => void;
+}
+
+export const AudioPlayerCard: React.FC<{ bridge: AudioBridge }> = ({ bridge }) => {
+  const { t } = useTranslation();
+  const total = bridge.duration > 0 ? bridge.duration : 0;
+  const value = Math.min(bridge.currentTime, total);
+
+  return (
+    <div className="flex-1 min-h-0 flex flex-col items-center justify-center gap-5 px-6 py-10 bg-slate-50/50 dark:bg-slate-950/50">
+      <div className="w-24 h-24 rounded-3xl bg-gradient-to-tr from-pink-500 to-indigo-500 flex items-center justify-center text-white shadow-lg">
+        <Music className={`w-10 h-10 ${bridge.isPlaying ? 'animate-pulse' : ''}`} />
+      </div>
+      <p className="max-w-full truncate font-semibold text-base text-slate-900 dark:text-white">
+        {bridge.trackName}
+      </p>
+
+      <div className="w-full max-w-md flex flex-col gap-1">
+        <input
+          type="range"
+          min={0}
+          max={total || 0}
+          step={0.1}
+          value={value}
+          disabled={!total}
+          onChange={(e) => bridge.onSeek(Number(e.target.value))}
+          aria-label={t('player.seek')}
+          className="w-full accent-indigo-600 disabled:opacity-40"
+        />
+        <div className="flex items-center justify-between text-[11px] font-mono text-slate-400">
+          <span>{formatAudioSeconds(value)}</span>
+          <span className="font-sans">{bridge.isPlaying ? t('player.playing') : t('player.paused')}</span>
+          <span>{formatAudioSeconds(total)}</span>
+        </div>
+      </div>
+
+      <div className="flex items-center gap-3">
+        {bridge.onPrev && (
+          <button
+            type="button"
+            onClick={bridge.onPrev}
+            title={t('player.prevTrack')}
+            aria-label={t('player.prevTrack')}
+            className="p-2.5 rounded-xl text-slate-500 hover:text-slate-800 dark:text-slate-400 dark:hover:text-slate-200 hover:bg-slate-100 dark:hover:bg-slate-800 active:scale-90 transition-all"
+          >
+            <SkipBack className="w-5 h-5" />
+          </button>
+        )}
+        <button
+          type="button"
+          onClick={bridge.onTogglePlay}
+          title={bridge.isPlaying ? t('player.pause') : t('player.play')}
+          aria-label={bridge.isPlaying ? t('player.pause') : t('player.play')}
+          className="p-4 rounded-2xl bg-indigo-600 hover:bg-indigo-500 text-white shadow-md active:scale-90 transition-all"
+        >
+          {bridge.isPlaying ? <Pause className="w-6 h-6" /> : <Play className="w-6 h-6" />}
+        </button>
+        {bridge.onNext && (
+          <button
+            type="button"
+            onClick={bridge.onNext}
+            title={t('player.nextTrack')}
+            aria-label={t('player.nextTrack')}
+            className="p-2.5 rounded-xl text-slate-500 hover:text-slate-800 dark:text-slate-400 dark:hover:text-slate-200 hover:bg-slate-100 dark:hover:bg-slate-800 active:scale-90 transition-all"
+          >
+            <SkipForward className="w-5 h-5" />
+          </button>
+        )}
+      </div>
+    </div>
+  );
+};

@@ -14,7 +14,6 @@ import {
   ChevronRight,
   ShieldAlert,
   HelpCircle,
-  Minimize2,
 } from 'lucide-react';
 import { DufsPathItem } from '../types/dufs';
 import {
@@ -27,6 +26,7 @@ import NameText from './NameText';
 import { createDemoSvgDataUri, createDemoWavDataUri } from '../utils/demoAssets';
 import { useModalTransition } from '../utils/useModalTransition';
 import { useLongPressAction } from '../utils/useLongPressAction';
+import { AudioPlayerCard, AudioBridge } from './ModalsAndPanels';
 
 const SandboxHintBar: React.FC<{ onDisable: () => void }> = ({ onDisable }) => {
   const { t } = useTranslation();
@@ -79,11 +79,15 @@ interface MediaPreviewModalProps {
   onRequestDisableSandbox?: () => void;
   hasPrev?: boolean;
   hasNext?: boolean;
+  /** 可预览序列里的位置与总数：>1 时 ◀▶ 组**常驻**并显示「当前 / 总数」，到首末项只置灰不消失 */
+  navIndex?: number;
+  navCount?: number;
   onPrev?: () => void;
   onNext?: () => void;
   onClose: () => void;
-  onMinimizeAudio?: (item: DufsPathItem, audioUrl: string, currentTime?: number) => void;
-  /** 后台迷你播放器正在出声时置 true：弹窗里的音/视频不自动抢播 */
+  /** 全站唯一的音频引擎（App 根部那个 <audio>）的受控接口；弹窗不再自带播放器 */
+  audio?: AudioBridge | null;
+  /** 后台正在出声时置 true：弹窗里的视频不自动抢播 */
   blockAutoPlay?: boolean;
   /** 弹窗里的媒体真的开始播了（用来反向暂停迷你播放器，保证全局只有一个声音） */
   onMediaPlay?: () => void;
@@ -346,10 +350,12 @@ export const MediaPreviewModal: React.FC<MediaPreviewModalProps> = ({
   onRequestDisableSandbox,
   hasPrev = false,
   hasNext = false,
+  navIndex = 0,
+  navCount = 0,
   onPrev,
   onNext,
   onClose,
-  onMinimizeAudio,
+  audio = null,
   blockAutoPlay = false,
   onMediaPlay,
   onCopyLink,
@@ -361,7 +367,6 @@ export const MediaPreviewModal: React.FC<MediaPreviewModalProps> = ({
   const [loadError, setLoadError] = useState<string | null>(null);
   const [mdMode, setMdMode] = useState<'rendered' | 'source'>('rendered');
   const [copied, setCopied] = useState(false);
-  const audioRef = useRef<HTMLAudioElement | null>(null);
 
   const { rendered, isClosing } = useModalTransition(!!item, 160);
   const [cachedItem, setCachedItem] = useState<DufsPathItem | null>(item);
@@ -422,17 +427,9 @@ export const MediaPreviewModal: React.FC<MediaPreviewModalProps> = ({
     );
   }, [activeItem, isDemoMode, category, activeUrl]);
 
+  // 音频由全站唯一的 <audio> 播放，关闭弹窗不打断它 —— 原来的「收起为迷你播放器」
+  // 和「关闭」因此是同一件事，不需要再区分。
   const handleCloseOrMinimize = () => {
-    if (
-      activeItem &&
-      category === 'audio' &&
-      onMinimizeAudio &&
-      audioRef.current &&
-      !audioRef.current.paused
-    ) {
-      onMinimizeAudio(activeItem, resolvedMediaSrc, audioRef.current.currentTime);
-      return;
-    }
     onClose();
   };
 
@@ -493,13 +490,6 @@ export const MediaPreviewModal: React.FC<MediaPreviewModalProps> = ({
     setTimeout(() => setCopied(false), 1800);
   };
 
-  const handleMinimizeToAudioPlayer = () => {
-    if (category === 'audio' && onMinimizeAudio) {
-      const curTime = audioRef.current ? audioRef.current.currentTime : 0;
-      onMinimizeAudio(activeItem, resolvedMediaSrc, curTime);
-    }
-  };
-
   return (
     <div
       className={`fixed inset-0 z-50 flex items-center justify-center p-2 sm:p-6 bg-slate-950/75 backdrop-blur-md ${
@@ -513,12 +503,12 @@ export const MediaPreviewModal: React.FC<MediaPreviewModalProps> = ({
         }`}
         onClick={(e) => e.stopPropagation()}
       >
-        {/* Top Header — 单行不换行：宽度不够时**名字截断**（全名另有 hover / 长按气泡），
-            动作簇永远留在同一行右侧，上/下一项不再随文件名长短跳位；
-            关闭按钮是簇里最后一个，靠 flex items-center 对齐，不会再和其他按钮垂直错位。 */}
+        {/* Top Header — 两行结构固定：名字与元信息各自单行截断（全名走 hover / 长按气泡），
+            所以顶栏高度与文件名长短无关，动作簇也不会再被挤到第二行。 */}
         <div className="px-3 py-2.5 sm:px-5 sm:py-3 border-b border-slate-200 dark:border-slate-800 bg-slate-50/70 dark:bg-slate-900/60 shrink-0">
           <div className="flex items-center gap-x-3">
-            {/* Title block: icon + name, size/mtime directly under the name */}
+            {/* 左：身份 + **只在某些文件类型出现的控件**（渲染/源码切换）。
+                宽度可变的组放这边，名字先截断吸收掉，右侧动作簇因此恒定。 */}
             <div className="flex min-w-0 flex-1 items-center gap-2 sm:gap-2.5">
               <FileIconBadge item={activeItem} size="sm" />
               <div className="min-w-0">
@@ -532,16 +522,13 @@ export const MediaPreviewModal: React.FC<MediaPreviewModalProps> = ({
                   {formatBytes(activeItem.size)} · {formatDateTime(activeItem.mtime, i18n.language)}
                 </p>
               </div>
-            </div>
 
-            {/* Actions: 永远不换行、永远靠右。顺序是「宽度会变的在左、要稳的在右」：
-                ◀▶ 与 ✕ 钉在簇尾，所以渲染/源码切换、迷你播放器按钮出现或消失都顶不到它们。 */}
-            <div className="flex shrink-0 items-center gap-1 sm:gap-1.5">
               {(category === 'markdown' || category === 'html') && (
-                <div className="inline-flex p-0.5 rounded-xl bg-slate-200/70 dark:bg-slate-800">
+                <div className="shrink-0 inline-flex p-0.5 rounded-xl bg-slate-200/70 dark:bg-slate-800">
                   <button
                     type="button"
                     onClick={() => setMdMode('rendered')}
+                    title={category === 'html' ? t('preview.htmlRendered') : t('preview.markdownRendered')}
                     className={`inline-flex items-center gap-1 px-2.5 py-1 rounded-lg text-xs font-medium active:scale-95 transition-all ${
                       mdMode === 'rendered'
                         ? 'bg-white dark:bg-slate-900 text-indigo-600 dark:text-indigo-400 shadow-sm'
@@ -549,13 +536,14 @@ export const MediaPreviewModal: React.FC<MediaPreviewModalProps> = ({
                     }`}
                   >
                     <BookOpen className="w-3.5 h-3.5" />
-                    <span className="hidden sm:inline">
+                    <span className="hidden lg:inline">
                       {category === 'html' ? t('preview.htmlRendered') : t('preview.markdownRendered')}
                     </span>
                   </button>
                   <button
                     type="button"
                     onClick={() => setMdMode('source')}
+                    title={category === 'html' ? t('preview.htmlSource') : t('preview.markdownSource')}
                     className={`inline-flex items-center gap-1 px-2.5 py-1 rounded-lg text-xs font-medium active:scale-95 transition-all ${
                       mdMode === 'source'
                         ? 'bg-white dark:bg-slate-900 text-indigo-600 dark:text-indigo-400 shadow-sm'
@@ -563,25 +551,17 @@ export const MediaPreviewModal: React.FC<MediaPreviewModalProps> = ({
                     }`}
                   >
                     <Code className="w-3.5 h-3.5" />
-                    <span className="hidden sm:inline">
+                    <span className="hidden lg:inline">
                       {category === 'html' ? t('preview.htmlSource') : t('preview.markdownSource')}
                     </span>
                   </button>
                 </div>
               )}
+            </div>
 
-              {category === 'audio' && onMinimizeAudio && (
-                <button
-                  type="button"
-                  onClick={handleMinimizeToAudioPlayer}
-                  title={t('preview.minimizeToPlayer')}
-                  className="inline-flex items-center gap-1.5 p-2 sm:px-2.5 sm:py-1.5 rounded-xl text-xs font-medium bg-indigo-500/10 text-indigo-600 dark:text-indigo-400 border border-indigo-500/20 hover:bg-indigo-500/20 active:scale-95 transition-all"
-                >
-                  <Minimize2 className="w-3.5 h-3.5" />
-                  <span className="hidden lg:inline">{t('preview.minimizeToPlayer')}</span>
-                </button>
-              )}
-
+            {/* 右：恒定动作簇。里面每一段的宽度都只跟**视口**有关、不跟文件类型或名字有关，
+                ◀▶ 组在多条可预览时常驻（首末项只置灰），所以按上/下一项时它一格都不移动。 */}
+            <div className="flex shrink-0 items-center gap-1 sm:gap-1.5">
               <button
                 type="button"
                 onClick={(e) => handleCopy(e)}
@@ -617,7 +597,7 @@ export const MediaPreviewModal: React.FC<MediaPreviewModalProps> = ({
                 <span className="hidden md:inline">{t('preview.downloadRaw')}</span>
               </button>
 
-              {(hasPrev || hasNext) && (
+              {navCount > 1 && (
                 <div className="inline-flex items-center p-0.5 rounded-xl bg-slate-100 dark:bg-slate-800 border border-slate-200/60 dark:border-slate-700/60">
                   <button
                     type="button"
@@ -629,6 +609,10 @@ export const MediaPreviewModal: React.FC<MediaPreviewModalProps> = ({
                   >
                     <ChevronLeft className="w-4 h-4" />
                   </button>
+                  {/* 定位槽定宽 + 等宽数字：从 9/10 走到 10/10 也不会把两个箭头挤开 */}
+                  <span className="w-[4.25rem] shrink-0 text-center font-mono text-[11px] tabular-nums text-slate-500 dark:text-slate-400 select-none">
+                    {navIndex + 1} / {navCount}
+                  </span>
                   <button
                     type="button"
                     disabled={!hasNext}
@@ -687,37 +671,18 @@ export const MediaPreviewModal: React.FC<MediaPreviewModalProps> = ({
               />
             </div>
           ) : category === 'audio' ? (
-            <div className="flex-1 min-h-0 flex flex-col items-center justify-center py-14 px-6 bg-slate-50/50 dark:bg-slate-950/50">
-              <div className="w-20 h-20 rounded-3xl bg-gradient-to-tr from-pink-500 to-indigo-500 flex items-center justify-center text-white shadow-lg mb-5 animate-pulse">
-                <FileIconBadge item={activeItem} size="lg" />
-              </div>
-              <p className="font-semibold text-base text-slate-900 dark:text-white mb-4">
-                {activeItem.name}
-              </p>
-              <audio
-                ref={audioRef}
-                src={resolvedMediaSrc}
-                controls
-                autoPlay={!blockAutoPlay}
-                onPlay={onMediaPlay}
-                className="w-full max-w-md"
-              />
-              {blockAutoPlay && (
-                <p className="-mt-1 mb-4 text-[11px] text-slate-400 dark:text-slate-500">
-                  {t('preview.autoPlayBlocked')}
-                </p>
-              )}
-              {onMinimizeAudio && (
-                <button
-                  type="button"
-                  onClick={handleMinimizeToAudioPlayer}
-                  className="mt-5 inline-flex items-center gap-1.5 px-3.5 py-2 rounded-xl text-xs font-semibold bg-indigo-500/10 text-indigo-600 dark:text-indigo-400 border border-indigo-500/25 hover:bg-indigo-500/20 active:scale-95 transition-all"
-                >
-                  <Minimize2 className="w-3.5 h-3.5" />
-                  <span>{t('preview.minimizeToPlayer')}</span>
-                </button>
-              )}
-            </div>
+            <AudioPlayerCard
+              bridge={
+                audio ?? {
+                  trackName: activeItem.name,
+                  isPlaying: false,
+                  currentTime: 0,
+                  duration: 0,
+                  onTogglePlay: () => {},
+                  onSeek: () => {},
+                }
+              }
+            />
           ) : category === 'pdf' ? (
             <div className="flex-1 min-h-0 flex flex-col bg-white dark:bg-slate-900">
               {isDemoMode ? (
