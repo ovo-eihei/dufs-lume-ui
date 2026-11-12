@@ -102,6 +102,8 @@
   },
   "player": {
     "nowPlaying": "正在后台播放",
+    "playing": "播放中",
+    "seek": "拖动进度",
     "paused": "已暂停",
     "close": "关闭播放器",
     "expand": "展开预览窗",
