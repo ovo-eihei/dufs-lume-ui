@@ -100,7 +100,7 @@ export interface UploadTask {
   file: File;
   targetPath: string;
   progress: number;
-  status: 'uploading' | 'completed' | 'failed' | 'auth_blocked' | 'cancelled';
+  status: 'queued' | 'uploading' | 'completed' | 'failed' | 'auth_blocked' | 'cancelled';
   errorMsg?: string;
 }
 

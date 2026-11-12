@@ -11,6 +11,7 @@ import {
   X,
   Trash2,
   Loader2,
+  Clock,
   Music,
   Play,
   Pause,
@@ -447,13 +448,25 @@ export const UploadQueuePanel: React.FC<UploadQueuePanelProps> = ({
   onCancelTask,
 }) => {
   const { t } = useTranslation();
+
+  // 未结算的任务 = 还在队列里；排队项显示「第 N 位」，N 按发起顺序数
+  const pending = tasks.filter((task) => task.status === 'uploading' || task.status === 'queued');
+  const waitingCount = tasks.filter((task) => task.status === 'queued').length;
+
   if (tasks.length === 0) return null;
 
   return (
     <div className="fixed bottom-3 inset-x-3 sm:inset-x-auto sm:bottom-4 sm:right-4 z-40 sm:w-96 rounded-2xl bg-white dark:bg-slate-900 border border-slate-200 dark:border-slate-800 shadow-2xl overflow-hidden animate-slideUp">
       <div className="flex items-center justify-between px-4 py-3 bg-slate-50 dark:bg-slate-800/80 border-b border-slate-200 dark:border-slate-800">
-        <span className="text-xs font-bold text-slate-800 dark:text-slate-200">
-          {t('upload.panelTitle')} ({tasks.length})
+        <span className="flex items-baseline gap-2 text-xs font-bold text-slate-800 dark:text-slate-200">
+          <span>
+            {t('upload.panelTitle')} ({tasks.length})
+          </span>
+          {waitingCount > 0 && (
+            <span className="font-normal text-[11px] text-slate-400">
+              {t('upload.queueSummary', { active: pending.length - waitingCount, waiting: waitingCount })}
+            </span>
+          )}
         </span>
         <button
           type="button"
@@ -475,6 +488,7 @@ export const UploadQueuePanel: React.FC<UploadQueuePanelProps> = ({
                 {task.status === 'uploading' && (
                   <Loader2 className="w-3.5 h-3.5 animate-spin text-indigo-500" />
                 )}
+                {task.status === 'queued' && <Clock className="w-4 h-4 text-slate-400" />}
                 {task.status === 'completed' && (
                   <CheckCircle2 className="w-4 h-4 text-emerald-500" />
                 )}
@@ -483,7 +497,7 @@ export const UploadQueuePanel: React.FC<UploadQueuePanelProps> = ({
                   <ShieldAlert className="w-4 h-4 text-amber-500" />
                 )}
                 {task.status === 'cancelled' && <Ban className="w-4 h-4 text-slate-400" />}
-                {task.status === 'uploading' ? (
+                {task.status === 'uploading' || task.status === 'queued' ? (
                   <button
                     type="button"
                     onClick={() => onCancelTask(task.id)}
@@ -509,6 +523,8 @@ export const UploadQueuePanel: React.FC<UploadQueuePanelProps> = ({
                 className={`h-full transition-all duration-200 ${
                   task.status === 'completed'
                     ? 'bg-emerald-500'
+                    : task.status === 'queued'
+                    ? 'bg-slate-300 dark:bg-slate-600'
                     : task.status === 'auth_blocked'
                     ? 'bg-amber-500'
                     : task.status === 'cancelled'
@@ -525,6 +541,8 @@ export const UploadQueuePanel: React.FC<UploadQueuePanelProps> = ({
               <span>{formatBytes(task.file.size)}</span>
               <span>
                 {task.status === 'uploading' && `${task.progress}%`}
+                {task.status === 'queued' &&
+                  t('upload.queued', { n: pending.findIndex((p) => p.id === task.id) + 1 })},
                 {task.status === 'completed' && t('upload.completed')}
                 {task.status === 'auth_blocked' && t('upload.authBlocked')}
                 {task.status === 'cancelled' && t('upload.cancelled')}

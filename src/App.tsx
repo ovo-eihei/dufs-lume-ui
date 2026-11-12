@@ -78,6 +78,9 @@ const HTML_SANDBOX_KEY = 'dufs_lume_html_sandbox';
 const THUMB_PREF_KEY = 'dufs_lume_thumbs';
 const ANON_ROOT_HREF = '/share/';
 
+/** 上传并发度：dufs 单进程，2 路是「小文件不排队、大文件不饿死」的折中 */
+const UPLOAD_CONCURRENCY = 2;
+
 function safeGetStorage(key: string, fallback: string): string {
   try {
     return localStorage.getItem(key) || fallback;
@@ -850,32 +853,46 @@ export default function App() {
   /* ======================= Uploads & Residue Cleanup ======================= */
   const uploadHandles = useRef(new Map<string, UploadHandle>());
   const uploadTargets = useRef(new Map<string, string>());
+  /** 排队中被取消的任务：worker 取到就跳过，不发起 PUT，也不清理远端 */
+  const cancelledTaskIds = useRef(new Set<string>());
 
   const handleFilesUpload = useCallback(
     async (files: FileList | File[]) => {
       const fileArray = Array.from(files);
       if (fileArray.length === 0) return;
 
-      for (const file of fileArray) {
-        const taskId = `${Date.now()}-${Math.random().toString(36).slice(2, 7)}`;
-        const targetPath = joinUrlPath(indexData.uri_prefix, indexData.href, file.name, false);
+      // 先把整批任务以 queued 状态落进面板，再由 worker 按并发度放行。
+      // 旧写法是「上传完一个才创建下一个任务」，拖 10 个文件面板上永远只有一行。
+      const batch = fileArray.map((file) => ({
+        taskId: `${Date.now()}-${Math.random().toString(36).slice(2, 7)}`,
+        file,
+        targetPath: joinUrlPath(indexData.uri_prefix, indexData.href, file.name, false),
+      }));
 
-        const newTask: UploadTask = {
+      setUploadTasks((prev) => [
+        ...batch.map(({ taskId, file, targetPath }): UploadTask => ({
           id: taskId,
           file,
           targetPath,
           progress: 0,
-          status: 'uploading',
-        };
-        setUploadTasks((prev) => [newTask, ...prev]);
+          status: 'queued',
+        })),
+        ...prev,
+      ]);
+
+      const markTask = (taskId: string, patch: Partial<UploadTask>) =>
+        setUploadTasks((prev) =>
+          prev.map((tItem) => (tItem.id === taskId ? { ...tItem, ...patch } : tItem))
+        );
+
+      /** 跑完一个文件；返回 'auth' 表示鉴权被拦，整批剩余任务不再发起 */
+      const runOne = async (entry: (typeof batch)[number]): Promise<'ok' | 'auth'> => {
+        const { taskId, file, targetPath } = entry;
+        markTask(taskId, { status: 'uploading', progress: 0 });
 
         if (isDemoMode) {
           if (simulateAuthIntercept) {
-            setUploadTasks((prev) =>
-              prev.map((tItem) =>
-                tItem.id === taskId ? { ...tItem, status: 'auth_blocked', progress: 0 } : tItem
-              )
-            );
+            markTask(taskId, { status: 'auth_blocked', progress: 0 });
             setAuthError({
               status: 401,
               operation: 'upload',
@@ -883,92 +900,60 @@ export default function App() {
               retryCallback: () => handleFilesUpload([file]),
             });
             showToast(t('toast.authTriggered'));
-            return;
+            return 'auth';
           }
 
-          setTimeout(() => {
-            setUploadTasks((prev) =>
-              prev.map((tItem) => (tItem.id === taskId ? { ...tItem, progress: 65 } : tItem))
-            );
-          }, 200);
+          await new Promise((r) => setTimeout(r, 200));
+          markTask(taskId, { progress: 65 });
 
-          setTimeout(async () => {
-            let demoText: string | undefined;
-            let demoMediaUrl: string | undefined;
-            if (file.type.startsWith('image/')) {
-              demoMediaUrl = URL.createObjectURL(file);
-            } else if (file.size < 200 * 1024) {
-              try {
-                demoText = await file.text();
-              } catch {
-                // ignore
-              }
+          let demoText: string | undefined;
+          let demoMediaUrl: string | undefined;
+          if (file.type.startsWith('image/')) {
+            demoMediaUrl = URL.createObjectURL(file);
+          } else if (file.size < 200 * 1024) {
+            try {
+              demoText = await file.text();
+            } catch {
+              // ignore
             }
-            const newItem: DufsPathItem = {
-              name: file.name,
-              path_type: 'File',
-              size: file.size,
-              mtime: Date.now(),
-              demoContent: demoText,
-              demoMediaUrl,
-            };
-            setDemoTree((prev) => {
-              const existing = (prev[indexData.href] || []).filter(
-                (i) => i.name !== file.name
-              );
-              return {
-                ...prev,
-                [indexData.href]: [newItem, ...existing],
-              };
-            });
-            setUploadTasks((prev) =>
-              prev.map((tItem) =>
-                tItem.id === taskId
-                  ? { ...tItem, progress: 100, status: 'completed' }
-                  : tItem
-              )
-            );
-            showToast(t('toast.uploadSuccess', { name: file.name }));
-            reloadServerInfo();
-          }, 550);
-          continue;
+          }
+          const newItem: DufsPathItem = {
+            name: file.name,
+            path_type: 'File',
+            size: file.size,
+            mtime: Date.now(),
+            demoContent: demoText,
+            demoMediaUrl,
+          };
+          setDemoTree((prev) => {
+            const existing = (prev[indexData.href] || []).filter((i) => i.name !== file.name);
+            return { ...prev, [indexData.href]: [newItem, ...existing] };
+          });
+
+          await new Promise((r) => setTimeout(r, 350));
+          markTask(taskId, { progress: 100, status: 'completed' });
+          showToast(t('toast.uploadSuccess', { name: file.name }));
+          reloadServerInfo();
+          return 'ok';
         }
 
-        const handle = uploadFileWithProgress(targetPath, file, (percent) => {
-          setUploadTasks((prev) =>
-            prev.map((tItem) =>
-              tItem.id === taskId ? { ...tItem, progress: percent } : tItem
-            )
-          );
-        });
+        const handle = uploadFileWithProgress(targetPath, file, (percent) =>
+          markTask(taskId, { progress: percent })
+        );
         uploadHandles.current.set(taskId, handle);
         uploadTargets.current.set(taskId, targetPath);
 
         try {
           await handle.promise;
-          setUploadTasks((prev) =>
-            prev.map((tItem) =>
-              tItem.id === taskId
-                ? { ...tItem, progress: 100, status: 'completed' }
-                : tItem
-            )
-          );
+          markTask(taskId, { progress: 100, status: 'completed' });
           showToast(t('toast.uploadSuccess', { name: file.name }));
           await refreshCurrentDirectory();
           reloadServerInfo();
         } catch (err) {
           if (err instanceof UploadCancelledError) {
-            setUploadTasks((prev) =>
-              prev.map((tItem) =>
-                tItem.id === taskId ? { ...tItem, status: 'cancelled' } : tItem
-              )
-            );
+            markTask(taskId, { status: 'cancelled' });
           } else if (err instanceof DufsAuthError) {
-            setUploadTasks((prev) =>
-              prev.map((tItem) =>
-                tItem.id === taskId ? { ...tItem, status: 'auth_blocked' } : tItem
-              )
-            );
+            markTask(taskId, { status: 'auth_blocked' });
             setAuthError({
               status: err.status,
               operation: 'upload',
@@ -977,25 +962,48 @@ export default function App() {
               retryCallback: () => handleFilesUpload([file]),
             });
             showToast(t('toast.authTriggered'));
-            break;
+            return 'auth';
           } else {
-            setUploadTasks((prev) =>
-              prev.map((tItem) =>
-                tItem.id === taskId
-                  ? {
-                      ...tItem,
-                      status: 'failed',
-                      errorMsg: err instanceof Error ? err.message : 'Upload failed',
-                    }
-                  : tItem
-              )
-            );
+            markTask(taskId, {
+              status: 'failed',
+              errorMsg: err instanceof Error ? err.message : 'Upload failed',
+            });
             showToast(t('toast.uploadFailed', { name: file.name, msg: describeError(err) }));
           }
         } finally {
           uploadHandles.current.delete(taskId);
           uploadTargets.current.delete(taskId);
+          cancelledTaskIds.current.delete(taskId);
         }
+        return 'ok';
+      };
+
+      let cursor = 0;
+      let stopped = false;
+      const worker = async () => {
+        while (!stopped) {
+          const idx = cursor++;
+          if (idx >= batch.length) return;
+          const entry = batch[idx];
+          // 排队期间被取消的：不发 PUT、不清理远端，直接跳过
+          if (cancelledTaskIds.current.delete(entry.taskId)) continue;
+          if ((await runOne(entry)) === 'auth') stopped = true;
+        }
+      };
+      await Promise.all(
+        Array.from({ length: Math.min(UPLOAD_CONCURRENCY, batch.length) }, () => worker())
+      );
+
+      // 鉴权被拦后剩下的文件不会再传：把「排队中」结算成「已取消」，别在面板上挂一条假队列
+      if (stopped) {
+        const batchIds = new Set(batch.map((b) => b.taskId));
+        setUploadTasks((prev) =>
+          prev.map((tItem) =>
+            batchIds.has(tItem.id) && tItem.status === 'queued'
+              ? { ...tItem, status: 'cancelled' }
+              : tItem
+          )
+        );
       }
     },
     [
@@ -1012,19 +1020,23 @@ export default function App() {
 
   const handleCancelUpload = useCallback(
     async (taskId: string) => {
+      // 排队中的任务还没有 handle：只登记取消，绝不 PUT、也绝不去删远端文件
+      cancelledTaskIds.current.add(taskId);
+
       const handle = uploadHandles.current.get(taskId);
       const targetPath = uploadTargets.current.get(taskId);
+      const inFlight = Boolean(handle);
       if (handle) handle.cancel();
 
       setUploadTasks((prev) =>
         prev.map((tItem) =>
-          tItem.id === taskId && tItem.status === 'uploading'
+          tItem.id === taskId && (tItem.status === 'uploading' || tItem.status === 'queued')
             ? { ...tItem, status: 'cancelled' }
             : tItem
         )
       );
 
-      if (!targetPath || isDemoMode) return;
+      if (!inFlight || !targetPath || isDemoMode) return;
 
       try {
         await deleteFileOrDirectory(targetPath, true);
@@ -1645,7 +1657,7 @@ export default function App() {
         tasks={uploadTasks}
         onClearCompleted={() =>
           setUploadTasks((prev) =>
-            prev.filter((tItem) => tItem.status === 'uploading')
+            prev.filter((tItem) => tItem.status === 'uploading' || tItem.status === 'queued')
           )
         }
         onDismissTask={(id) =>
