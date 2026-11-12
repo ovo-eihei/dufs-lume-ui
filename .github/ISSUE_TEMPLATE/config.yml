@@ -1,8 +1,14 @@
 blank_issues_enabled: true
 contact_links:
-  - name: 安全问题的私密报告入口与本项目的能力边界
+  - name: 安全问题的私密报告入口与本项目的能力边界（中文）
     url: https://github.com/ovo-eihei/dufs-lume-ui/blob/main/docs/ai-development-notes.md
     about: 请先读第 4 与第 6 节 —— 鉴权由 Dufs 与反向代理负责，安全问题请勿在 issue 里公开描述。
+  - name: Private security reporting & capability boundaries (English)
+    url: https://github.com/ovo-eihei/dufs-lume-ui/blob/main/docs/ai-development-notes.en.md
+    about: Read sections 4 and 6 first — authentication is owned by Dufs and your reverse proxy, so please do not describe security issues publicly in an issue.
   - name: Dufs 本身的功能（配额、逐目录权限、分享链接与过期…）
     url: https://github.com/sigoden/dufs/issues
     about: 本项目只是 Dufs 的 --assets 换皮前端，Dufs 没有的能力请提到上游。
+  - name: Features that belong to Dufs itself (quotas, per-directory permissions, share links with expiry…)
+    url: https://github.com/sigoden/dufs/issues
+    about: This project is only a --assets reskin frontend for Dufs — anything Dufs cannot do should be filed upstream.
