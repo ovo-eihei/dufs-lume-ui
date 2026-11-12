@@ -96,7 +96,8 @@
     "lines": "{{count}} lines",
     "prevFile": "Previous file (←)",
     "nextFile": "Next file (→)",
-    "minimizeToPlayer": "Minimize to Mini Audio Player"
+    "minimizeToPlayer": "Minimize to Mini Audio Player",
+    "autoPlayBlocked": "Background music is playing, so this item did not start automatically — press play."
   },
   "player": {
     "nowPlaying": "Playing in background",

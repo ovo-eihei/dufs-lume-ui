@@ -82,6 +82,10 @@ interface MediaPreviewModalProps {
   onNext?: () => void;
   onClose: () => void;
   onMinimizeAudio?: (item: DufsPathItem, audioUrl: string, currentTime?: number) => void;
+  /** 后台迷你播放器正在出声时置 true：弹窗里的音/视频不自动抢播 */
+  blockAutoPlay?: boolean;
+  /** 弹窗里的媒体真的开始播了（用来反向暂停迷你播放器，保证全局只有一个声音） */
+  onMediaPlay?: () => void;
   onCopyLink: (item: DufsPathItem) => void;
   onDownload: (item: DufsPathItem) => void;
 }
@@ -345,6 +349,8 @@ export const MediaPreviewModal: React.FC<MediaPreviewModalProps> = ({
   onNext,
   onClose,
   onMinimizeAudio,
+  blockAutoPlay = false,
+  onMediaPlay,
   onCopyLink,
   onDownload,
 }) => {
@@ -643,7 +649,8 @@ export const MediaPreviewModal: React.FC<MediaPreviewModalProps> = ({
               <video
                 src={resolvedMediaSrc}
                 controls
-                autoPlay
+                autoPlay={!blockAutoPlay}
+                onPlay={onMediaPlay}
                 className="max-w-full max-h-full w-full"
               />
             </div>
@@ -655,7 +662,19 @@ export const MediaPreviewModal: React.FC<MediaPreviewModalProps> = ({
               <p className="font-semibold text-base text-slate-900 dark:text-white mb-4">
                 {activeItem.name}
               </p>
-              <audio ref={audioRef} src={resolvedMediaSrc} controls autoPlay className="w-full max-w-md" />
+              <audio
+                ref={audioRef}
+                src={resolvedMediaSrc}
+                controls
+                autoPlay={!blockAutoPlay}
+                onPlay={onMediaPlay}
+                className="w-full max-w-md"
+              />
+              {blockAutoPlay && (
+                <p className="-mt-1 mb-4 text-[11px] text-slate-400 dark:text-slate-500">
+                  {t('preview.autoPlayBlocked')}
+                </p>
+              )}
               {onMinimizeAudio && (
                 <button
                   type="button"
