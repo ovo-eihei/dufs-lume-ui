@@ -8,7 +8,7 @@
 # DUFS_VERSION 带 v 前缀：Docker Hub 上的 tag 是 v0.47.0（实测无 0.47.0 这个 tag）。
 ARG DUFS_VERSION=v0.47.0
 
-FROM node:22-alpine AS build
+FROM node:25-alpine AS build
 WORKDIR /src
 COPY package.json pnpm-lock.yaml ./
 # --ignore-scripts：pnpm 10+ 对未批准的 postinstall 直接退 1（esbuild@0.21.5）。
