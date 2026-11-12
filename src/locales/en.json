@@ -102,6 +102,8 @@
   },
   "player": {
     "nowPlaying": "Playing in background",
+    "playing": "Playing",
+    "seek": "Seek",
     "paused": "Paused",
     "close": "Close Player",
     "expand": "Expand Preview",
