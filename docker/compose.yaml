@@ -43,12 +43,12 @@ services:
       # 只读：info 只要 statfs，thumb 只要读原图，写权限一律不给
       - ${DATA_DIR:-./data}:/data:ro
       - lume-thumbs:/var/cache/lume-thumbs
-      # 与 caddy 共享的 socket 卷：两个服务挂同一个 named volume，路径都是 /shared
-      - lume-socket:/shared
     environment:
       DUFS_SERVE_PATH: /data
       DUFS_ANON_PREFIX: "${LUME_ANON_PREFIX:-/share}"
-    # 不对外也不对内发布端口：只讲 /shared/lume-info.sock
+    # 不对外发布：8090 只在 compose 网络里可见
+    expose:
+      - "8090"
 
   caddy:
     image: caddy:2-alpine
@@ -60,14 +60,11 @@ services:
       - ./Caddyfile:/etc/caddy/Caddyfile:ro
       - caddy-data:/data
       - caddy-config:/config
-      # 同一个 socket 卷；caddy 只需 connect()，不写文件
-      - lume-socket:/shared
     depends_on:
       - dufs
       - lume-info-api
 
 volumes:
   lume-thumbs:
-  lume-socket:
   caddy-data:
   caddy-config:

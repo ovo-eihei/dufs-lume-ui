@@ -52,7 +52,7 @@ dufs-lume-ui/
 ├── scripts/
 │   └── lume-info-api.sh              # POSIX sh 扩展接口脚本（服务 /__lume__/info 与 /__lume__/thumb）
 ├── docs/
-│   ├── deployment-and-lume-api.md    # 进阶部署、Unix Socket 配置、安全约束与性能分析
+│   ├── deployment-and-lume-api.md    # 进阶部署、扩展 API 响应规范、安全约束与运维清单
 │   ├── ai-development-notes.md       # AI 开发说明与安全边界（中文）
 │   └── ai-development-notes.en.md    # 同上，英文版
 └── src/
@@ -105,12 +105,12 @@ docker compose up -d --build
    ```bash
    dufs /var/lib/dufs -A --assets /path/to/dufs-lume-ui/dist -p 5000
    ```
-2. **启动扩展接口服务（Unix Domain Socket 零端口占用）**：
+2. **启动扩展接口服务（`socat` 监听 `127.0.0.1:8090`）**：
    ```bash
    sudo cp scripts/lume-info-api.sh /usr/local/sbin/lume-info-api.sh
    sudo chmod 0755 /usr/local/sbin/lume-info-api.sh
    DUFS_SERVE_PATH=/var/lib/dufs THUMB_CACHE_DIR=/var/lib/lume/thumbs \
-     socat UNIX-LISTEN:/run/lume-info.sock,fork,reuseaddr,mode=0660,group=caddy \
+     socat TCP-LISTEN:8090,bind=127.0.0.1,reuseaddr,fork \
      EXEC:/usr/local/sbin/lume-info-api.sh
    ```
    > 服务端缩略图依赖 `libvips-tools`（`vipsthumbnail`）或 ImageMagick（`convert`）。若宿主机未安装图像工具链，`/__lume__/info` 中的 `thumbs` 字段将自动返回 `false`，前端将平滑降级，无需修改任何配置。
@@ -130,7 +130,7 @@ docker compose up -d --build
            }
 
            handle /__lume__/* {
-               reverse_proxy unix//run/lume-info.sock
+               reverse_proxy 127.0.0.1:8090
            }
 
            reverse_proxy dufs:5000
@@ -142,7 +142,7 @@ docker compose up -d --build
    }
    ```
 
-> 📖 **进阶部署文档**：关于扩展 API 响应规范、缩略图安全边界、三种监听模式（`socat` Unix Socket / `systemd.socket` 按需激活 / TCP 端口）的性能对比及运维注意事项，请参阅 **[`docs/deployment-and-lume-api.md`](./docs/deployment-and-lume-api.md)**。
+> 📖 **进阶部署文档**：关于扩展 API 响应规范、缩略图安全边界、systemd 单元写法与运维注意事项，请参阅 **[`docs/deployment-and-lume-api.md`](./docs/deployment-and-lume-api.md)**。
 
 ## 📄 开源协议
 

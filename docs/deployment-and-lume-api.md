@@ -1,81 +1,77 @@
-# 部署进阶、扩展 API (`/__lume__/info` + `/__lume__/thumb`) 与性能分析
+# 部署进阶与扩展 API (`/__lume__/info` + `/__lume__/thumb`)
 
-本文档整理了 **dufs-lume-ui** 在生产环境配合 [Dufs (`sigoden/dufs`)](https://github.com/sigoden/dufs)、[Caddy `forward_auth`](https://caddyserver.com/docs/caddyfile/directives/forward_auth) 与 [TinyAuth](https://tinyauth.app/docs/community/caddy/) 部署时的扩展接口方案、三种监听模式理论性能对比，以及运维实测避坑指南。
+本文给出 **dufs-lume-ui** 在生产环境配合 [Dufs (`sigoden/dufs`)](https://github.com/sigoden/dufs)、[Caddy `forward_auth`](https://caddyserver.com/docs/caddyfile/directives/forward_auth) 与 [TinyAuth](https://tinyauth.app/docs/community/caddy/) 部署扩展接口的**唯一做法**，以及运维避坑清单。
 
 > `/__lume__/info` 与 `/__lume__/thumb` 由**同一个脚本、同一个监听**服务，按请求行分流；前端只用这两条扩展路由，其余全部走 Dufs 原生接口。
+>
+> 监听方式只有一个：**`socat` 常驻，监听 `127.0.0.1:8090`**（宿主机原生与 `docker/` 里的 Compose 编排都是这一种）。本文不提供其它形态。
 
 ---
 
-## 1. `/__lume__/info` 为什么是实时脚本
+## 1. 响应规范
 
-**数据目录零污染**：不在 Dufs 数据目录写入任何文件，网盘目录、备份与同步任务保持干净。
-2. **一次请求完成「登录态探测 + 磁盘空间读取 + 服务端能力发现」**：
-   - `/__lume__/info` 部署在 Caddy 的 `@gated` 鉴权块之后；
-   - **未登录访客**打开页面时，前端请求 `GET /__lume__/info` 在网关层即被 `302/401` 拦截（**根本不会触发脚本执行**），前端据此判定为未登录访客，自动隐藏上传/新建/删除入口并将浏览根目录锁定在 `/share/`；
-   - **已登录管理员**打开页面（或上传/删除文件后），请求通过网关并由 `scripts/lume-info-api.sh` 实时返回 JSON，前端单次请求同时完成身份确认、磁盘水位展示与服务端能力发现。
-3. **响应体**（`scripts/lume-info-api.sh` 实际输出）：
-   ```json
-   {
-     "generated_at": "2026-01-01T09:00:00+08:00",
-     "path": "/var/lib/dufs",
-     "free_bytes": 18992562176,
-     "data_bytes": 1529020057,
-     "thumbs": false
-   }
-   ```
-   - **只报两个数**：`free_bytes` = 文件系统剩余可用（dufs 没有配额概念，"这个目录还能写多少"就等于它），`data_bytes` = 数据根自身占用（`du -sk` × 1024，默认输出）。
-   **没有 `total_bytes`/`used_bytes`**：那两项反映整个分区的占用（含操作系统与别的软件），与网盘内容无关 —— 分区用掉 38% 而数据根只占其中很小一部分是常态，画成百分比进度条会让人误以为网盘占了 38%。前端告警用绝对阈值（剩余 < 1 GiB）。
-   - `thumbs` 是**能力位**：系统里没有图像工具链时为 `false`；装了 `libvips-tools`（或 ImageMagick）后自动变成 `{"enabled":true,"widths":[128,256,512]}`，**无需改任何配置**。
-   装了 `libvips-tools` 即为 enabled（Debian 12 = `8.14.x`，走 `THUMB_TOOL=vips` 分支）。libvips 与 ImageMagick 是两套独立工具链：只装 libvips 时系统里不会有 `convert`/`magick`/`cwebp` 这些 CLI。
-   出图行为：`a.jpg` 1,423,169 B → **512×512 / 24,137 B**；`logo.png` 原图 **207×208**，请求 `w=200` 收敛到 256 档，而 `--size=256x256>` 的 `>` 语义**不放大** ⇒ 出图仍是 207×208。同参数第二次请求命中缓存、不再调用工具链。
+### (1) `GET /__lume__/info`
 
----
+由 `scripts/lume-info-api.sh` 实时生成，无缓存：
 
-## 2. 为什么使用 Unix Domain Socket 而不是命名管道 (`mkfifo`)？
+```json
+{
+  "generated_at": "2026-01-01T09:00:00+08:00",
+  "path": "/var/lib/dufs",
+  "free_bytes": 18992562176,
+  "data_bytes": 1529020057,
+  "thumbs": false
+}
+```
 
-- **命名管道 (`mkfifo`) 的局限**：Linux FIFO 命名管道是**单向字节流**，无法在一个连接上既接收 HTTP 请求又将 JSON 响应写回给特定客户端，且 [Caddy `reverse_proxy`](https://caddyserver.com/docs/caddyfile/directives/reverse_proxy#addresses) 不支持挂载单向 FIFO 管道。
-- **Unix Domain Socket（本地套接字文件，如 `/run/lume-info.sock`）的优势**：
-  - 同样是**文件系统中的一个节点（不占用任何 TCP/UDP 端口、不经过网卡协议栈）**；
-  - 支持**双向全双工通信**，Caddy 原生支持 `reverse_proxy unix//run/lume-info.sock`。
+- **只报两个数**：`free_bytes` = 文件系统剩余可用（Dufs 没有配额概念，"这个目录还能写多少"就等于它），`data_bytes` = 数据根自身占用（`du -sk` × 1024）。**不要**加 `total_bytes`/`used_bytes`：那两项反映整个分区（含操作系统与别的软件），画成百分比进度条会让人误以为网盘占了分区那么大。前端告警用绝对阈值（剩余 < 1 GiB）。
+- `thumbs` 是**能力位**：系统里没有图像工具链时为 `false`；装了 `libvips-tools`（或 ImageMagick）后自动变成 `{"enabled":true,"widths":[128,256,512]}`，**无需改任何配置**。libvips 与 ImageMagick 是两套独立工具链：只装 libvips 时系统里不会有 `convert`/`magick`/`cwebp` 这些 CLI。
+- 这条路由**必须放在鉴权之内**（见 §4(1)）：未登录访客请求它会被网关 `302/401` 拦下，**根本不会触发脚本执行**，前端据此判定为访客并隐藏上传/新建/删除入口、把浏览根目录锁定在 `/share/`。已登录管理员打开页面（或上传/删除后）才真正执行脚本。
 
----
+### (2) `GET /__lume__/thumb?path=<站内绝对路径>&w=<宽度>&root=<share|full>`
 
-## 3. 方案 A / B / C 理论性能消耗对比
+| 参数 | 含义 |
+| :--- | :--- |
+| `path` | **站内绝对路径**（百分号编码，如 `%2Fshare%2Fimg.png`），脚本把它拼到 `DUFS_SERVE_PATH` 下 |
+| `w` | 期望宽度，脚本收敛到 `THUMB_WIDTHS` 档位表里最近的一档 |
+| `root` | `share` ⇒ 硬拦在 `DUFS_ANON_PREFIX`（默认 `/share/`）子树内；缺省 = 不额外限制 |
 
-由于 `/__lume__/info` 位于 Caddy 鉴权层之后，只有已登录管理员刷新页面或上传/删除文件时才会触发调用：
+**脚本自己做的安全约束**（全部实测通过，见 §6）：
 
-| 评估维度 | 方案 A：`socat` + Unix Socket | 方案 B：`systemd.socket` 按需激活 | 方案 C：`socat`/`ncat` + TCP 端口 |
-| :--- | :--- | :--- | :--- |
-| **平时空闲内存 (Idle RAM)** | 约 **1.5 ~ 2.5 MB**（1 个常驻 `socat` 进程，PSS 极小） | **0 MB**（无任何常驻进程，套接字由 PID 1 `systemd` 顺带托管） | 约 **1.5 ~ 2.5 MB**（1 个常驻 `socat`/`ncat` 进程） |
-| **平时空闲 CPU** | **0%**（阻塞在内核 `accept()` 上） | **0%**（由内核 `epoll` 监听） | **0%**（阻塞在内核 `accept()` 上） |
-| **端口与协议栈开销** | **0 端口**，纯内核内存缓冲区拷贝，不走 TCP/IP 协议栈 | **0 端口**，纯内核内存缓冲区拷贝，不走 TCP/IP 协议栈 | 占用 1 个回环端口，需经过本地 TCP 三次握手、四次挥手及 `TIME_WAIT` 状态表 |
-| **单次请求派生开销 (Fork)** | **极低**：`socat` 直接 `fork() + execve()` 拉起 `/bin/sh`，耗时约 **0.3 ~ 0.8 ms** | **中等**：`systemd` 需为每次连接动态实例化 `lume-info@xxx.service` 单元、建立 cgroup 并记录 journald 日志，耗时约 **3 ~ 8 ms** | **低**：`socat` `fork() + execve()` + 本地回环 TCP 握手，耗时约 **0.5 ~ 1.2 ms** |
-| **脚本内部执行耗时** | `df -P -k`（系统调用 `statfs()`，**< 0.2 ms**）+ `du -sk`（见下） | 同左 | 同左 |
+1. `path` 必须是绝对路径；
+2. 任何 `..` 段直接 **403**（`%2e%2e` 编码后同样被拒）；
+3. 解码后含控制字符（换行会污染响应头）⇒ **400**；
+4. `readlink -f` 后的真实路径必须仍在数据根内 ⇒ 软链接逃逸（`share/evil.png -> /etc/passwd`）**403**；
+5. `root=share` 时路径不在公开区 ⇒ **403**（且这道判断在"文件是否存在"之前，未登录者连"这个门禁区路径存在吗"都问不出来）；
+6. 扩展名白名单，非图像 ⇒ **415**；原图超过 `THUMB_MAX_SRC_BYTES` ⇒ **413**；
+7. 缓存目录不可写 ⇒ **500**（不会把错误页当图片吐给浏览器）。
 
-### 选型建议与 `du -sb` 性能说明
+**缓存**：`THUMB_CACHE_DIR`（默认 `/var/lib/lume/thumbs`，**在数据根之外**，不污染网盘），键 = `真实路径|mtime|size|宽度` 的 cksum ⇒ 文件一改自动换键，无需清理逻辑；同一张同一档第二次请求**不再调用工具链**。
 
-1. **方案 A (`socat` + Unix Socket) 是两种部署的默认**：宿主机原生（本仓库 `scripts/` 的 unit 写法）与 Docker bundle（`docker/` 三件套，走共享 named volume）**都用 A**。⚠ 代价：`socat` 常需自行安装（Debian 12 候选版本 `1.7.4.4-2`）。
-2. **追求 0 常驻进程、宿主机原生部署**：选 **方案 B (`systemd.socket`)**。平时 `ps aux` 中没有任何额外常驻进程，单次请求多出的几毫秒对人类完全无感，且**零新依赖**。
-3. **A 到底比 C 快多少（容器内端到端实测，不是推算）**：同一份脚本、`caddy:2-alpine` + `socat` 两个容器挂同一个 named volume，30 次 `/__lume__/info` 经 caddy 的 `time_total`（min / 中位 / max，单位秒）：
-   - unix：`0.0322 / 0.0374 / 0.0869`
-   - TCP：`0.0337 / 0.0371 / 0.0683`
-   ⇒ **差 < 1 ms**，被脚本自身那 ~33 ms（`fork sh` + `df -P` + `du -sk`）整个吃掉。上表里「不走 TCP 栈」这一项在 bundle 场景本来就不成立：TCP 只在 bridge 内部，端口不对宿主发布、包不出 veth，全在内核里。选 A 的理由是**少一个端口、少一条网络依赖**，不是快。
-4. **容器化用 A 要多付两条账（都实测到）**：
-   - **stale socket**：SIGKILL（OOM 杀、`docker rm -f`、节点崩）后 socat 来不及 unlink，卷里的 socket 文件残留 ⇒ 新容器直接 `E "…" exists` 起不来并进 restart 循环；named volume 跨 `down` 不删（除非 `down -v`），所以这个坑不会自愈。⇒ `Dockerfile.api` 的 CMD 必须先 `rm -f "$LUME_SOCKET"` 再 `exec`（裸机那条是靠 unit 里的 `ExecStartPre=-/bin/rm -f` 兜的）。
-   - **权限契约**：socket 是文件系统节点，跨容器靠共享卷 + UID 对齐。`caddy:2-alpine` 以 root 跑，所以 `mode=0666` 能过；裸机那套 `0660 root:caddy` 在容器里没意义（两个容器没有共同的组数据库），一旦给 caddy 加 `user:` 就必须显式对齐 gid。
-5. **`df` 与 `du` 的开销（实测，不是推测）**：
-   - `df -P -k` 只读一次超级块（`statfs`），**< 0.2 ms**，与磁盘大小无关。
-   `du -sk` 要递归遍历 inode：数据根 12 个文件 **0.002 s**；造 2 万个文件 **0.054 s** ⇒ 每请求跑一次完全可接受，所以 `data_bytes` **默认输出**。文件数到数十万级时才需要考虑缓存。
-   - ⚠ 用 `-sk` 而不是 `-sb`：busybox(alpine) 的 `du` 没有 `-b`；`df` 同理不用 GNU 的 `-B1/--output`，否则在 busybox 上直接回 usage。乘 1024 交给 shell 算术，**别在 awk 里乘**（mawk 按 `%g` 输出成 `3.16728e+10`，既不是合法 JSON 整数又丢精度）。
+**前端如何用它（三态偏好）**：
+
+- 偏好存在 `localStorage['dufs_lume_thumbs']`，取值 `auto`（缺省 = 用户从没设置过）/ `on` / `off`；
+- `auto` ⇒ **完全跟随能力位**：`thumbs.enabled` 为真才显示，且走服务端缩放；为假就干脆不显示；
+- `on` ⇒ 用户明确要开：服务端支持走 `/__lume__/thumb`，**不支持就退回浏览器缩放原图**（能用，但每张吃原图带宽）；
+- `off` ⇒ 无论服务端支不支持都不显示；**服务端能力变化不会改写用户设置**；
+- 服务端图挂了（404/503/被网关弹走）⇒ 该张自动退回原图，原图也挂 ⇒ 退回文件图标，**不会无限重试**。
+
+⚠ **未登录访客看不到服务端缩略图**：只要两条路由都在鉴权之内，匿名请求就会被 302 弹到认证中心。这不是故障：前端 `auto` 态拿不到能力位 ⇒ 干脆不显示，不会发出注定失败的请求。要让公开区图片也有服务端缩略图，必须**额外**开一条匿名路由并**硬塞 `root=share`**（§4 可选 (4)），此时脚本的第 5 条约束就是唯一的门。
+
+### (3) 脚本内部的取值约束
+
+- `df -P -k` 只读一次超级块（`statfs`），与磁盘大小无关；`du -sk` 要递归遍历 inode：数据根 12 个文件 **0.002 s**，造 2 万个文件 **0.054 s** ⇒ 每请求跑一次完全可接受，所以 `data_bytes` **默认输出**。文件数到数十万级时才需要考虑缓存。
+- ⚠ 用 `-sk` 而不是 `-sb`：busybox(alpine) 的 `du` 没有 `-b`；`df` 同理不用 GNU 的 `-B1/--output`，否则在 busybox 上直接回 usage。乘 1024 交给 shell 算术，**别在 awk 里乘**（mawk 按 `%g` 输出成 `3.16728e+10`，既不是合法 JSON 整数又丢精度）。
 
 ---
 
-## 4. 方案 A 完整配置步骤
+## 2. 宿主机原生部署
 
 ```bash
 sudo apt install socat
-sudo cp scripts/lume-info-api.sh /usr/local/sbin/lume-info-api.sh   # CONVENTIONS：脚本进 /usr/local/sbin/<service>-<verb>
+sudo cp scripts/lume-info-api.sh /usr/local/sbin/lume-info-api.sh   # 约定：脚本进 /usr/local/sbin/<service>-<verb>
 sudo chmod 0755 /usr/local/sbin/lume-info-api.sh
+sudo mkdir -p /var/lib/lume/thumbs && sudo chown -R root:root /var/lib/lume && sudo chmod 0750 /var/lib/lume
 ```
 
 `/etc/systemd/system/lume-info-api.service`：
@@ -90,18 +86,15 @@ Type=simple
 Environment="DUFS_SERVE_PATH=/var/lib/dufs"
 Environment="DUFS_ANON_PREFIX=/share"
 Environment="THUMB_CACHE_DIR=/var/lib/lume/thumbs"
-ExecStartPre=-/bin/rm -f /run/lume-info.sock
-# ⚠ mode 用 0660 + 属组 caddy：caddy 要能连，但不该全世界可写（写成 0666 等于任意本地用户都能打这个 API）
-ExecStart=/usr/bin/socat UNIX-LISTEN:/run/lume-info.sock,fork,reuseaddr,mode=0660,group=caddy EXEC:/usr/local/sbin/lume-info-api.sh
+# 只绑回环：8090 不对任何外部接口暴露，入口层（Caddy）之外没人能连
+ExecStart=/usr/bin/socat TCP-LISTEN:8090,bind=127.0.0.1,reuseaddr,fork EXEC:/usr/local/sbin/lume-info-api.sh
 Restart=always
 RestartSec=2
 # 缩略图是 CPU/内存密集操作，2 GB 机器上给它一道上限
 Nice=10
 MemoryMax=192M
-# ⚠ ProtectSystem 只能用 full，**不能用 strict**（实测）：
-#   strict 把整个文件系统层级挂只读，**/run 也包括** ⇒ socat bind() 报
-#   `E bind(5, {AF=1 "/run/lume-info.sock"}): Read-only file system`，服务卡 activating (auto-restart)。
-#   ReadWritePaths=/var/lib/lume 救不了（那是另一个路径）。full = /usr /boot /efi /etc 只读，/run 与 /var 可写。
+# ⚠ ProtectSystem 用 full，不要用 strict：strict 把 /var 一并挂成只读 ⇒ 缩略图缓存写不进去，
+#   脚本按第 7 条约束回 500。full = /usr /boot /efi /etc 只读，/var 与 /run 可写。
 ProtectSystem=full
 NoNewPrivileges=yes
 PrivateTmp=yes
@@ -115,50 +108,29 @@ WantedBy=multi-user.target
 
 ```bash
 sudo systemctl daemon-reload && sudo systemctl enable --now lume-info-api.service
-sudo mkdir -p /var/lib/lume/thumbs && sudo chown -R root:root /var/lib/lume && sudo chmod 0750 /var/lib/lume
+curl -s http://127.0.0.1:8090/__lume__/info | head -c 200
 ```
 
-> 方案 B（`systemd.socket` + `Accept=yes` + `StandardInput/Output=socket`，0 常驻进程、无需 `socat`）与方案 C（TCP 端口）的差别只在监听方式：**脚本与 Caddy 路由都不用动**。
+> 想让 Caddy 用别的用户身份连这个端口，不需要额外权限：TCP 回环连接只看端口可达性，不涉及文件节点权限。
 
 ---
 
-## 5. 缩略图端点 `/__lume__/thumb`
+## 3. Docker Compose 部署
 
-`GET /__lume__/thumb?path=<站内绝对路径>&w=<宽度>&root=<share|full>`
+`docker/` 目录已经内置好，**不需要自己写 unit**：`lume-info-api` 容器里的 `socat` 监听 `0.0.0.0:8090`（容器网络内部），`expose` 只在 compose 网络里可见、**不对宿主发布端口**，Caddy 容器写 `reverse_proxy lume-info-api:8090`。
 
-| 参数 | 含义 |
-| :--- | :--- |
-| `path` | **站内绝对路径**（百分号编码，如 `%2Fshare%2Fimg.png`），脚本把它拼到 `DUFS_SERVE_PATH` 下 |
-| `w` | 期望宽度，脚本收敛到 `THUMB_WIDTHS` 档位表里最近的一档 |
-| `root` | `share` ⇒ 硬拦在 `DUFS_ANON_PREFIX`（默认 `/share/`）子树内；缺省 = 不额外限制 |
+```bash
+cd docker && cp .env.example .env   # 改 DATA_DIR 与 LUME_HTTP_PORT
+docker compose up -d --build
+```
 
-**脚本自己做的安全约束**（全部实测通过，见 §7）：
-
-1. `path` 必须是绝对路径；
-2. 任何 `..` 段直接 **403**（`%2e%2e` 编码后同样被拒）；
-3. 解码后含控制字符（换行会污染响应头）⇒ **400**；
-4. `readlink -f` 后的真实路径必须仍在数据根内 ⇒ 软链接逃逸（`share/evil.png -> /etc/passwd`）**403**；
-5. `root=share` 时路径不在公开区 ⇒ **403**（且这道判断在"文件是否存在"之前，未登录者连"这个门禁区路径存在吗"都问不出来）；
-6. 扩展名白名单，非图像 ⇒ **415**；原图超过 `THUMB_MAX_SRC_BYTES` ⇒ **413**；
-7. 缓存目录不可写 ⇒ **500**（不会把错误页当图片吐给浏览器）。
-
-**缓存**：`THUMB_CACHE_DIR`（默认 `/var/lib/lume/thumbs`，**在数据根之外**，不污染网盘），键 = `真实路径|mtime|size|宽度` 的 cksum ⇒ 文件一改自动换键，无需清理逻辑；同一张同一档第二次请求**不再调用工具链**（实测生成次数 2 次 / 请求 4 次）。
-
-**前端如何用它（三态偏好）**：
-
-- 偏好存在 `localStorage['dufs_lume_thumbs']`，取值 `auto`（缺省 = 用户从没设置过）/ `on` / `off`；
-- `auto` ⇒ **完全跟随能力位**：`thumbs.enabled` 为真才显示，且走服务端缩放；为假就干脆不显示；
-- `on` ⇒ 用户明确要开：服务端支持走 `/__lume__/thumb`，**不支持就退回浏览器缩放原图**（能用，但每张吃原图带宽）；
-- `off` ⇒ 无论服务端支不支持都不显示；**服务端能力变化不会改写用户设置**；
-- 服务端图挂了（404/503/被网关弹走）⇒ 该张自动退回原图，原图也挂 ⇒ 退回文件图标，**不会无限重试**。
-
-⚠ **未登录访客看不到服务端缩略图**：只要 `/__lume__/info` 与 `/__lume__/thumb` 都在鉴权之内，匿名请求就会被 302 弹到认证中心。这不是故障：前端 `auto` 态拿不到能力位 ⇒ 干脆不显示，不会发出注定失败的请求。要让公开区图片也有服务端缩略图，必须**额外**开一条匿名路由并**硬塞 `root=share`**（§6(4)），此时脚本的第 5 条约束就是唯一的门。
+细节见 [`README.md` 的 Docker 一节](../README.md#-docker-compose-快速部署) 与 `docker/compose.yaml` 注释。
 
 ---
 
-## 6. Caddyfile 需要配套的三处
+## 4. Caddyfile 需要配套的三处
 
-### (1) 扩展 API：一个 socket 服务两条路由
+### (1) 扩展 API：一个服务两条路由
 
 ```caddyfile
     handle @gated {
@@ -168,7 +140,7 @@ sudo mkdir -p /var/lib/lume/thumbs && sudo chown -R root:root /var/lib/lume && s
         }
 
         handle /__lume__/* {
-            reverse_proxy unix//run/lume-info.sock
+            reverse_proxy 127.0.0.1:8090
         }
 
         reverse_proxy 127.0.0.1:5000
@@ -211,13 +183,15 @@ Caddy 没有"未登录"这个匹配条件（登录态只有 tinyauth 知道）�
     handle /__lume__/thumb {
         # 语义：无论调用方传什么，都把它锁在 /share 子树内 —— 这是唯一的门
         uri set_query root=share
-        reverse_proxy unix//run/lume-info.sock
+        reverse_proxy 127.0.0.1:8090
     }
 ```
 
 （`set_query` 是覆盖语义，`replace_query` 只替换已存在的参数 —— 前端在匿名态本来就会带 `root=share`，但只有覆盖语义是安全的）
 
-## 7. 部署与运维注意事项
+---
+
+## 5. 部署与运维注意事项
 
 1. **资源前缀不是 `/assets/`**：Dufs 把 `--assets` 目录挂在 `/__dufs_v<版本>__/` 下（`/assets/` 直接 404），升级 Dufs 时版本号前缀会自动变化。因此源码中只使用 `__ASSETS_PREFIX__` 占位符，**绝不硬编码版本前缀**；Caddyfile 中使用 `not path /__dufs_v*` 通配豁免。
 2. **更新前端产物后必须重启 Dufs**：Dufs 的 `Server::new()` 在启动时一次性执行 `read_to_string(assets/index.html)` 缓存在内存中（`src/server.rs:93`），而 JS/CSS 是每次请求直读磁盘。若只覆盖 `dist/*` 而不重启 Dufs，线上 HTML 仍会引用上一版的 hashed JS/CSS 文件名。
@@ -233,13 +207,15 @@ Caddy 没有"未登录"这个匹配条件（登录态只有 tinyauth 知道）�
 
    ⚠ 这里用 `gsub` 只能当品牌值不含 `&` 与反斜杠（`&` 在 gsub 替换串里 = 整段匹配）。entrypoint 脚本自己走的是 `index()`+`substr()` 拼接，不吃转义，已经用 `</script>` / `"` / `'` / `\` / `&` / `%` 的恶意值逐字节验过。
 
-### 自检命令（脚本可脱离 socket 单测，管道进、管道出）
+---
+
+## 6. 自检命令（脚本可脱离监听单测，管道进、管道出）
 
 ```bash
 # 能力位与磁盘水位
 printf 'GET /__lume__/info HTTP/1.1\r\nHost: x\r\n\r\n' | ./scripts/lume-info-api.sh
 
-# 安全闸门（期望依次：200 / 403 / 403 / 403 / 415 / 400 / 403 / 400）
+# 安全闸门（期望依次：200 / 403 / 403 / 403 / 415 / 400 / 403）
 export DUFS_SERVE_PATH=/tmp/fakeroot THUMB_CACHE_DIR=/tmp/cache PATH=/tmp/fakebin:$PATH
 for q in \
   '/__lume__/thumb?path=%2Fshare%2Fa.png&w=256&root=share' \
@@ -255,4 +231,4 @@ done
 
 ⚠ 上面这个循环**必须用 `printf '%b' "GET $q ..."`**，不能写 `printf 'GET %s ...' "$q"`：查询串里的 `%2F` 会被 `printf` 当成格式说明符吃掉（`%2F` → 宽度 2 的 `F` 转换），路径直接被破坏成 400。
 
-> 这 7 条闸门用例可以脱离 socket 单测：先用假 `vipsthumbnail`（固定输出）过一遍形状，再在装了真图像工具的机器上复测（`root=share` 打门禁区路径 ⇒ 403、`..` ⇒ 403、非图像扩展名 ⇒ 415、`%0A` ⇒ 400、未知路由 ⇒ 404）。缩放质量由出图尺寸与字节数验证（见 §1）。
+> 这 7 条闸门用例可以脱离监听单测：先用假 `vipsthumbnail`（固定输出）过一遍形状，再在装了真图像工具的机器上复测（`root=share` 打门禁区路径 ⇒ 403、`..` ⇒ 403、非图像扩展名 ⇒ 415、`%0A` ⇒ 400、未知路由 ⇒ 404）。缩放质量由出图尺寸与字节数验证：`a.jpg` 1,423,169 B → **512×512 / 24,137 B**；`logo.png` 原图 **207×208**，请求 `w=200` 收敛到 256 档，而 `--size=256x256>` 的 `>` 语义**不放大** ⇒ 出图仍是 207×208。

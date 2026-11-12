@@ -52,7 +52,7 @@ dufs-lume-ui/
 ├── scripts/
 │   └── lume-info-api.sh              # POSIX sh extension API (serves /__lume__/info and /__lume__/thumb)
 ├── docs/
-│   ├── deployment-and-lume-api.md    # advanced deployment, Unix socket setup, safety constraints, performance
+│   ├── deployment-and-lume-api.md    # advanced deployment, extension API contract, safety constraints, ops checklist
 │   ├── ai-development-notes.md       # AI development notes (Chinese)
 │   └── ai-development-notes.en.md    # AI development notes (English)
 └── src/
@@ -105,12 +105,12 @@ docker compose up -d --build
    ```bash
    dufs /var/lib/dufs -A --assets /path/to/dufs-lume-ui/dist -p 5000
    ```
-2. **Run the extension API on a Unix domain socket (no port consumed)**:
+2. **Run the extension API (`socat` listening on `127.0.0.1:8090`)**:
    ```bash
    sudo cp scripts/lume-info-api.sh /usr/local/sbin/lume-info-api.sh
    sudo chmod 0755 /usr/local/sbin/lume-info-api.sh
    DUFS_SERVE_PATH=/var/lib/dufs THUMB_CACHE_DIR=/var/lib/lume/thumbs \
-     socat UNIX-LISTEN:/run/lume-info.sock,fork,reuseaddr,mode=0660,group=caddy \
+     socat TCP-LISTEN:8090,bind=127.0.0.1,reuseaddr,fork \
      EXEC:/usr/local/sbin/lume-info-api.sh
    ```
    > Server-side thumbnails need `libvips-tools` (`vipsthumbnail`) or ImageMagick (`convert`). If neither is installed, `/__lume__/info` reports `thumbs: false` and the frontend degrades automatically — no configuration change required.
@@ -130,7 +130,7 @@ docker compose up -d --build
            }
 
            handle /__lume__/* {
-               reverse_proxy unix//run/lume-info.sock
+               reverse_proxy 127.0.0.1:8090
            }
 
            reverse_proxy dufs:5000
@@ -142,7 +142,7 @@ docker compose up -d --build
    }
    ```
 
-> 📖 **Advanced documentation**: response contract of the extension API, the thumbnail safety boundaries, a comparison of the three listen modes (`socat` Unix socket / `systemd.socket` on-demand / TCP port) and operational notes are in **[`docs/deployment-and-lume-api.md`](./docs/deployment-and-lume-api.md)**.
+> 📖 **Advanced documentation**: response contract of the extension API, the thumbnail safety boundaries, the systemd unit and operational notes are in **[`docs/deployment-and-lume-api.md`](./docs/deployment-and-lume-api.md)**.
 
 ## 📄 License
 
