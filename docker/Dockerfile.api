@@ -9,8 +9,11 @@
 #   none（不装任何图像工具）          → 能力位自动灭，前端退回「原图直出」，不报错
 #
 # 基座用 alpine：脚本只依赖 POSIX sh + busybox 就够（df -P / du -sk / stat -c / readlink -f
-# 全部实测通过），装完 vips 约 88 MB；不装 libheif（AVIF 不带），比 debian:12-slim 同配置小 4 倍。
-ARG BASE=alpine:3.22
+# 全部实测通过），装完 vips 约 88 MB（alpine 3.22 + vips 8.16.1）/ 101 MB（alpine 3.24 + vips 8.18.2，实测）；
+# 不装 libheif（AVIF 不带），比 debian:12-slim 同配置小 4 倍。
+# ⚠ 这个默认值要跟 Dockerfile.ui 运行阶段的 `FROM alpine:x.yz` **手动保持一致**：
+#   dependabot 只识别 `FROM` 字面量，不会动 ARG 默认值 ⇒ 只升一边会得到两个 alpine 小版本的裂脉栈。
+ARG BASE=alpine:3.24
 FROM ${BASE}
 
 ARG IMAGE_TOOL=vips
