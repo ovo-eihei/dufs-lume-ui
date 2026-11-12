@@ -1,0 +1,38 @@
+version: 2
+
+updates:
+  # 前端依赖（React / Vite / Tailwind / i18next / fflate / lucide-react）
+  - package-ecosystem: npm
+    directory: "/"
+    schedule:
+      interval: weekly
+      time: "04:20"
+      timezone: Asia/Shanghai
+    open-pull-requests-limit: 5
+    groups:
+      # 同一批小版本/补丁合成一个 PR，避免每周刷一串单包 PR
+      minor-and-patch:
+        patterns:
+          - "*"
+        update-types:
+          - minor
+          - patch
+
+  # 工作流自身用到的 Action
+  - package-ecosystem: github-actions
+    directory: "/"
+    schedule:
+      interval: weekly
+      time: "04:20"
+      timezone: Asia/Shanghai
+    open-pull-requests-limit: 3
+
+  # docker/ 里的基础镜像（dufs 与 caddy 都按 tag 引用，见 docs/ai-development-notes.md 3C）
+  - package-ecosystem: docker
+    directories:
+      - "/docker"
+    schedule:
+      interval: weekly
+      time: "04:20"
+      timezone: Asia/Shanghai
+    open-pull-requests-limit: 3
