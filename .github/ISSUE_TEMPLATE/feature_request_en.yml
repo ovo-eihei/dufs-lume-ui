@@ -1,0 +1,51 @@
+name: Feature Request (English)
+description: Propose a new feature or an improvement
+title: "[Feat] "
+labels: ["enhancement"]
+body:
+  - type: markdown
+    attributes:
+      value: |
+        Two things to check before you file:
+        1. This project is only a `--assets` reskin frontend for Dufs. **Capabilities Dufs itself does not have (quotas, server-side packaging of selected entries, share links with expiry, per-directory permissions, …) are not implemented here.** Please file those upstream at [sigoden/dufs](https://github.com/sigoden/dufs).
+        2. Directions that were already declined will not be re-litigated: exposing the extension API outside the auth layer by default, letting anonymous visitors reach the gated area, having the frontend guess the login state.
+  - type: textarea
+    id: problem
+    attributes:
+      label: What problem are you trying to solve
+      description: Describe the scenario and the pain first, then the solution — a proposal without a use case is hard to judge
+      placeholder: I manage my drive from a phone; long file names get truncated and there is no way to see the full name.
+    validations:
+      required: true
+  - type: textarea
+    id: solution
+    attributes:
+      label: Expected behaviour
+      description: What the interface should become and how the interaction should flow
+    validations:
+      required: true
+  - type: textarea
+    id: alternatives
+    attributes:
+      label: Other approaches (optional)
+      description: Alternatives you considered and why you did not pick them
+  - type: dropdown
+    id: scope
+    attributes:
+      label: Area
+      description: Where this change would most likely land
+      options:
+        - UI / interaction
+        - Extension API (scripts/lume-info-api.sh)
+        - Docker orchestration and configuration
+        - Documentation
+        - Not sure
+  - type: checkboxes
+    id: checks
+    attributes:
+      label: Before submitting
+      options:
+        - label: I searched the existing issues (including closed ones) and found no duplicate
+          required: true
+        - label: I am willing to add reproduction material or help verify if asked
+          required: false

@@ -1,0 +1,67 @@
+name: Bug Report (English)
+description: Report a problem you can reproduce
+title: "[Bug] "
+labels: ["bug"]
+body:
+  - type: markdown
+    attributes:
+      value: |
+        Thanks for the report. This project is mostly AI-written and reviewed by hand, **it has no automated tests**, so your reproduction steps are worth more to it than to a typical project.
+        ⚠ Please do not disclose security issues here in public — use the private reporting entry on the Security page (see section 6 of `docs/ai-development-notes.en.md`).
+  - type: textarea
+    id: what-happened
+    attributes:
+      label: What happened
+      description: What did you see, and what did you expect to see
+      placeholder: After opening a directory whose name contains Chinese characters and spaces, every thumbnail disappears; I expected the server-side resized thumbnails to show, per the setting.
+    validations:
+      required: true
+  - type: textarea
+    id: reproduce
+    attributes:
+      label: Steps to reproduce
+      description: Which page you started from and what you clicked — the more concrete, the better
+      placeholder: |
+        1. Go to /share/images/
+        2. Switch to grid view
+        3. Open preferences and set thumbnails to "on"
+    validations:
+      required: true
+  - type: dropdown
+    id: deploy
+    attributes:
+      label: Deployment
+      description: How do you run it
+      options:
+        - Docker Compose (the docker/ directory)
+        - Host dufs --assets + Caddy
+        - Host dufs --assets (no reverse proxy)
+        - Local pnpm run dev (built-in demo mode)
+        - Other / not sure
+    validations:
+      required: true
+  - type: input
+    id: versions
+    attributes:
+      label: Versions
+      description: Browser and version, Dufs version, this project's tag (paste the output of `dufs --version` and `git describe --tags`)
+      placeholder: "Safari iOS 18.1 / Dufs 0.47.0 / v0.3.0"
+    validations:
+      required: true
+  - type: textarea
+    id: network
+    attributes:
+      label: Relevant requests and server output
+      description: The URL and status code of the failing request from your browser devtools; when `/__lume__/*` is involved, also include the response of `/__lume__/info` (**redact the domain, tokens and any credentials first**)
+      placeholder: |
+        GET /__lume__/thumb?path=%2Fshare%2Fa.png&w=256 → 503
+        GET /__lume__/info → {"generated_at":"…","path":"/data","free_bytes":…,"thumbs":{"enabled":false}}
+  - type: checkboxes
+    id: checks
+    attributes:
+      label: Before submitting
+      options:
+        - label: I confirmed this is not caused by a client-side blocking rule (e.g. AdGuard / a browser extension dropping the request)
+          required: false
+        - label: I redacted domains, credentials and other sensitive information above
+          required: true
