@@ -83,7 +83,7 @@
     "close": "Close Preview (Esc / Space)",
     "downloadRaw": "Download Raw",
     "copyDirectLink": "Copy Link",
-    "openInNewTab": "Open in New Tab",
+    "copyDirectLinkHint": "Copy link (Ctrl/⌘ + click or long-press = open in a new tab)",
     "loading": "Loading file content...",
     "loadError": "Failed to load file content",
     "unsupported": "Online preview is not available for this file format. Please download the file to view it.",
