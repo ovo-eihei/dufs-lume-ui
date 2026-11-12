@@ -3,6 +3,7 @@ import { readFileSync } from 'node:fs';
 import { resolve } from 'node:path';
 import { defineConfig, Plugin } from 'vite';
 import react from '@vitejs/plugin-react';
+import tailwindcss from '@tailwindcss/vite';
 
 /**
  * favicon 的缓存键 = 文件内容的 sha256 前 8 位。
@@ -45,7 +46,7 @@ function dufsAssetsPrefixPlugin(): Plugin {
 
 export default defineConfig({
   base: './',
-  plugins: [react(), dufsAssetsPrefixPlugin()],
+  plugins: [react(), tailwindcss(), dufsAssetsPrefixPlugin()],
   build: {
     outDir: 'dist',
     assetsDir: '',
