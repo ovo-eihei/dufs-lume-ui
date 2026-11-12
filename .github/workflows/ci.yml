@@ -1,0 +1,60 @@
+name: CI
+
+# 构建即测试：本项目没有单元测试与 E2E（见 docs/ai-development-notes.md），
+# 所以这道工作流跑的是「类型检查 + 生产构建」，外加一次依赖漏洞审计（只报告不拦门）。
+
+on:
+  push:
+    branches: [main]
+  pull_request:
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+concurrency:
+  group: ci-${{ github.ref }}
+  cancel-in-progress: true
+
+jobs:
+  build:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: pnpm/action-setup@v4
+        with:
+          version: 12.16.1
+
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 20
+          cache: pnpm
+
+      # --ignore-scripts：本项目不需要任何依赖的生命周期脚本。esbuild 的平台二进制由
+      # optionalDependencies（@esbuild/linux-x64 等）直接带来，postinstall 只是兜底下载；
+      # pnpm 12 遇到被跳过的构建脚本会直接失败（ERR_PNPM_IGNORED_BUILDS），
+      # 显式关掉脚本既是确定性，也顺手挡住依赖包在 CI 里跑任意脚本。
+      - name: 安装依赖
+        run: pnpm install --frozen-lockfile --ignore-scripts
+
+      - name: 类型检查与构建
+        run: pnpm build
+
+      - name: 产物自检（index.html 必须引用带 hash 的 js 与 css）
+        run: |
+          set -e
+          grep -qE 'lume-app\.[A-Za-z0-9_-]{6,}\.js' dist/index.html
+          grep -qE 'lume-style\.[A-Za-z0-9_-]{6,}\.css' dist/index.html
+          test -f dist/index.html
+          echo "产物文件名带 content hash，符合 --assets 的 immutable 缓存要求"
+
+      - name: 依赖漏洞审计（报告用，不拦门）
+        continue-on-error: true
+        run: pnpm audit --audit-level=high
+
+      - uses: actions/upload-artifact@v4
+        with:
+          name: dist
+          path: dist
+          retention-days: 7
