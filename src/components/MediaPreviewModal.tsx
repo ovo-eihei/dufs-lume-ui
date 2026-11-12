@@ -515,22 +515,22 @@ export const MediaPreviewModal: React.FC<MediaPreviewModalProps> = ({
         onClick={(e) => e.stopPropagation()}
       >
         {/* Top Header — 名字与元信息各自单行截断（全名走 hover / 长按气泡），所以顶栏高度与
-            文件名长短无关。桌面一行；窄屏（<sm）折成两行：图标留在原位并放大一档、动作簇整簇
-            上移到第一行右侧，文件名与大小/日期另起一行贴到动作簇下面并靠右。 */}
+            文件名长短无关。桌面一行；窄屏（<sm）是两列网格：左列一个放大到整块顶栏高度的图标
+            （xl，跨两行垂直居中），右列上格 = 动作簇（右上角对齐），下格 = 文件名与大小/日期（左对齐）。 */}
         <div className="px-3 py-2.5 sm:px-5 sm:py-3 border-b border-slate-200 dark:border-slate-800 bg-slate-50/70 dark:bg-slate-900/60 shrink-0">
-          <div className="flex flex-wrap items-center gap-x-2.5 gap-y-1.5 sm:flex-nowrap sm:gap-x-3 sm:gap-y-0">
-            {/* 图标永远在第一行最左；窄屏放大一档（md），桌面维持 sm */}
-            <span className="order-1 shrink-0 sm:hidden">
-              <FileIconBadge item={activeItem} size="md" />
+          <div className="grid grid-cols-[auto_minmax(0,1fr)] items-center gap-x-2.5 gap-y-1 sm:flex sm:flex-nowrap sm:items-center sm:gap-x-3">
+            {/* 图标：窄屏占满左列并跨两行垂直居中（xl ≈ 整块顶栏的高度），桌面维持 sm */}
+            <span className="col-start-1 row-start-1 row-span-2 self-center sm:hidden">
+              <FileIconBadge item={activeItem} size="xl" />
             </span>
-            <span className="order-1 hidden shrink-0 sm:block">
+            <span className="hidden sm:order-1 sm:block sm:shrink-0">
               <FileIconBadge item={activeItem} size="sm" />
             </span>
 
             {/* 身份 + **只在某些文件类型出现的控件**（渲染/源码切换）。
                 宽度可变的组放这边，名字先截断吸收掉，动作簇因此恒定；
-                窄屏它整行换到第二行并靠右（justify-end），桌面回到图标右侧占满剩余。 */}
-            <div className="order-3 flex w-full min-w-0 items-center justify-end gap-2 sm:order-2 sm:w-auto sm:flex-1 sm:justify-start sm:gap-2.5">
+                窄屏它是网格的右下格（左对齐），桌面回到图标右侧占满剩余。 */}
+            <div className="col-start-2 row-start-2 flex min-w-0 items-center gap-2 sm:order-2 sm:flex-1 sm:gap-2.5">
               <div className="min-w-0">
                 <NameText
                   as="h3"
@@ -581,7 +581,7 @@ export const MediaPreviewModal: React.FC<MediaPreviewModalProps> = ({
 
             {/* 右：恒定动作簇。里面每一段的宽度都只跟**视口**有关、不跟文件类型或名字有关，
                 ◀▶ 组在多条可预览时常驻（首末项只置灰），所以按上/下一项时它一格都不移动。 */}
-            <div className="order-2 ml-auto flex shrink-0 items-center gap-1 sm:order-3 sm:ml-0 sm:gap-1.5">
+            <div className="col-start-2 row-start-1 flex shrink-0 items-center justify-self-end gap-1 sm:order-3 sm:gap-1.5">
               <button
                 type="button"
                 onClick={(e) => handleCopy(e)}

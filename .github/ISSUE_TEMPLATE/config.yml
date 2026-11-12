@@ -1,9 +1,9 @@
 blank_issues_enabled: true
 contact_links:
-  - name: 安全问题的私密报告入口与本项目的能力边界（中文）
+  - name: 安全问题的私密报告入口与本项目的能力边界
     url: https://github.com/ovo-xxx/dufs-lume-ui/blob/main/docs/ai-development-notes.md
     about: 请先读第 4 与第 6 节 —— 鉴权由 Dufs 与反向代理负责，安全问题请勿在 issue 里公开描述。
-  - name: Private security reporting & capability boundaries (English)
+  - name: Private security reporting & capability boundaries
     url: https://github.com/ovo-xxx/dufs-lume-ui/blob/main/docs/ai-development-notes.en.md
     about: Read sections 4 and 6 first — authentication is owned by Dufs and your reverse proxy, so please do not describe security issues publicly in an issue.
   - name: Dufs 本身的功能（配额、逐目录权限、分享链接与过期…）

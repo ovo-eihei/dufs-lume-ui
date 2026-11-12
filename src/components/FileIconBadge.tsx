@@ -15,7 +15,7 @@ import { getFileExtension, getPreviewCategory, isDirectory } from '../utils/form
 
 interface FileIconBadgeProps {
   item: DufsPathItem;
-  size?: 'sm' | 'md' | 'lg';
+  size?: 'sm' | 'md' | 'lg' | 'xl';
 }
 
 export const FileIconBadge: React.FC<FileIconBadgeProps> = ({ item, size = 'md' }) => {
@@ -27,12 +27,14 @@ export const FileIconBadge: React.FC<FileIconBadgeProps> = ({ item, size = 'md' 
     sm: 'w-8 h-8 rounded-lg',
     md: 'w-10 h-10 rounded-xl',
     lg: 'w-14 h-14 rounded-2xl',
+    xl: 'w-[4.25rem] h-[4.25rem] rounded-3xl',
   };
 
   const iconSizes = {
     sm: 'w-4 h-4',
     md: 'w-5 h-5',
     lg: 'w-7 h-7',
+    xl: 'w-9 h-9',
   };
 
   if (isDir) {
