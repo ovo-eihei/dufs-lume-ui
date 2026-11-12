@@ -22,6 +22,7 @@ import {
   getPreviewCategory,
   isDirectory,
   isSameOrUnder,
+  joinItemPath,
   joinUrlPath,
   normalizeDirHref,
 } from './utils/format';
@@ -750,7 +751,7 @@ export default function App() {
 
   const handleDownloadItem = (item: DufsPathItem) => {
     const isDir = isDirectory(item);
-    const basePath = joinUrlPath(indexData.uri_prefix, indexData.href, item.name, isDir);
+    const basePath = joinItemPath(indexData.uri_prefix, indexData.href, item, isDir);
     const downloadUrl = isDir ? `${basePath}?zip` : basePath;
 
     if (isDemoMode) {
@@ -1190,10 +1191,10 @@ export default function App() {
 
   const handleConfirmDelete = async (item: DufsPathItem) => {
     setDeleteTarget(null);
-    const targetUrl = joinUrlPath(
+    const targetUrl = joinItemPath(
       indexData.uri_prefix,
       indexData.href,
-      item.name,
+      item,
       isDirectory(item)
     );
 
@@ -1250,7 +1251,7 @@ export default function App() {
     (item: DufsPathItem) => {
       if (item.demoMediaUrl) return item.demoMediaUrl;
       if (isDemoMode) return createDemoWavDataUri(item.name);
-      return joinUrlPath(indexData.uri_prefix, indexData.href, item.name, false);
+      return joinItemPath(indexData.uri_prefix, indexData.href, item, false);
     },
     [isDemoMode, indexData.uri_prefix, indexData.href]
   );
@@ -1447,10 +1448,10 @@ export default function App() {
   };
 
   const handleCopyDirectLink = (item: DufsPathItem) => {
-    const relPath = joinUrlPath(
+    const relPath = joinItemPath(
       indexData.uri_prefix,
       indexData.href,
-      item.name,
+      item,
       isDirectory(item)
     );
     const fullUrl = buildAbsoluteUrl(relPath);
@@ -1643,7 +1644,7 @@ export default function App() {
         item={previewItem}
         fileUrl={
           previewItem
-            ? joinUrlPath(indexData.uri_prefix, indexData.href, previewItem.name, false)
+            ? joinItemPath(indexData.uri_prefix, indexData.href, previewItem, false)
             : ''
         }
         isDemoMode={isDemoMode}
