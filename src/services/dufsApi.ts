@@ -610,7 +610,7 @@ files.example.com {
       mtime: 1762400000000,
       demoContent: `#!/bin/sh
 # Lume 扩展接口示例（同时服务 /__lume__/info 与 /__lume__/thumb）
-ROOT="\${DUFS_SERVE_PATH:-/var/lib/dufs}"
+ROOT="\${DUFS_SERVE_PATH:-/data}"
 set -- $(df -P -k "$ROOT" | tail -n 1)
 FREE=$(( \${4:-0} * 1024 ))
 DATA=$(( $(du -sk "$ROOT" 2>/dev/null | cut -f1) * 1024 ))

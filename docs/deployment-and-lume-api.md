@@ -17,7 +17,7 @@
 ```json
 {
   "generated_at": "2026-01-01T09:00:00+08:00",
-  "path": "/var/lib/dufs",
+  "path": "/data",
   "free_bytes": 18992562176,
   "data_bytes": 1529020057,
   "thumbs": false
@@ -83,7 +83,7 @@ After=network.target
 
 [Service]
 Type=simple
-Environment="DUFS_SERVE_PATH=/var/lib/dufs"
+Environment="DUFS_SERVE_PATH=/data"   # 示例数据根，换成你自己的
 Environment="DUFS_ANON_PREFIX=/share"
 Environment="THUMB_CACHE_DIR=/var/lib/lume/thumbs"
 # 只绑回环：8090 不对任何外部接口暴露，入口层（Caddy）之外没人能连

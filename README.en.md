@@ -103,13 +103,13 @@ docker compose up -d --build
 
 1. **Serve the built assets with Dufs**:
    ```bash
-   dufs /var/lib/dufs -A --assets /path/to/dufs-lume-ui/dist -p 5000
+   dufs /data -A --assets /path/to/dufs-lume-ui/dist -p 5000
    ```
 2. **Run the extension API (`socat` listening on `127.0.0.1:8090`)**:
    ```bash
    sudo cp scripts/lume-info-api.sh /usr/local/sbin/lume-info-api.sh
    sudo chmod 0755 /usr/local/sbin/lume-info-api.sh
-   DUFS_SERVE_PATH=/var/lib/dufs THUMB_CACHE_DIR=/var/lib/lume/thumbs \
+   DUFS_SERVE_PATH=/data THUMB_CACHE_DIR=/var/lib/lume/thumbs \
      socat TCP-LISTEN:8090,bind=127.0.0.1,reuseaddr,fork \
      EXEC:/usr/local/sbin/lume-info-api.sh
    ```

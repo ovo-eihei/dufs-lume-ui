@@ -471,7 +471,17 @@ export const MediaPreviewModal: React.FC<MediaPreviewModalProps> = ({
     };
   }, []);
 
-  const copyLongPress = useLongPressAction();
+  /**
+   * 长按的第二动作 = 新窗口打开直链，**在按住期间就发起**（不等抬手）：手指按住不动很难
+   * 精确卡时长，抬手才发生等于逼用户猜阈值。定时器里发起 window.open 在部分内核会被弹窗
+   * 拦截器挡掉（返回 null），此时返回 false ⇒ 交给抬手后那次真手势里的 click 补做。
+   */
+  const openDirectLink = () => {
+    if (isDemoMode) return false; // 演示模式的直链是 data: URI，顶层导航会被 Chrome 拦
+    return window.open(activeUrl, '_blank', 'noopener') !== null;
+  };
+
+  const copyLongPress = useLongPressAction(openDirectLink);
 
   if (!rendered || !activeItem) return null;
 
@@ -479,8 +489,9 @@ export const MediaPreviewModal: React.FC<MediaPreviewModalProps> = ({
   const showOpen = ctrlHeld && !isDemoMode;
 
   const handleCopy = (e?: React.MouseEvent) => {
-    // 三个入口同一个动作：Ctrl/⌘ + 点击，或移动端长按。长按的执行放在抬手后的 click 里，
-    // 因为 window.open 必须在用户手势里发起，定时器里弹会被浏览器当成弹窗拦掉。
+    // 三个入口同一个动作：Ctrl/⌘ + 点击，或移动端长按（后者已在按住期间开好了窗口，
+    // 抬手补发的这次 click 直接吞掉，不重复动作、也不去复制链接）。
+    if (copyLongPress.takeIfFired()) return;
     if (!isDemoMode && (copyLongPress.takeIfLongPress() || e?.ctrlKey || e?.metaKey)) {
       window.open(activeUrl, '_blank', 'noopener');
       return;
@@ -503,14 +514,23 @@ export const MediaPreviewModal: React.FC<MediaPreviewModalProps> = ({
         }`}
         onClick={(e) => e.stopPropagation()}
       >
-        {/* Top Header — 两行结构固定：名字与元信息各自单行截断（全名走 hover / 长按气泡），
-            所以顶栏高度与文件名长短无关，动作簇也不会再被挤到第二行。 */}
+        {/* Top Header — 名字与元信息各自单行截断（全名走 hover / 长按气泡），所以顶栏高度与
+            文件名长短无关。桌面一行；窄屏（<sm）折成两行：图标留在原位并放大一档、动作簇整簇
+            上移到第一行右侧，文件名与大小/日期另起一行贴到动作簇下面并靠右。 */}
         <div className="px-3 py-2.5 sm:px-5 sm:py-3 border-b border-slate-200 dark:border-slate-800 bg-slate-50/70 dark:bg-slate-900/60 shrink-0">
-          <div className="flex items-center gap-x-3">
-            {/* 左：身份 + **只在某些文件类型出现的控件**（渲染/源码切换）。
-                宽度可变的组放这边，名字先截断吸收掉，右侧动作簇因此恒定。 */}
-            <div className="flex min-w-0 flex-1 items-center gap-2 sm:gap-2.5">
+          <div className="flex flex-wrap items-center gap-x-2.5 gap-y-1.5 sm:flex-nowrap sm:gap-x-3 sm:gap-y-0">
+            {/* 图标永远在第一行最左；窄屏放大一档（md），桌面维持 sm */}
+            <span className="order-1 shrink-0 sm:hidden">
+              <FileIconBadge item={activeItem} size="md" />
+            </span>
+            <span className="order-1 hidden shrink-0 sm:block">
               <FileIconBadge item={activeItem} size="sm" />
+            </span>
+
+            {/* 身份 + **只在某些文件类型出现的控件**（渲染/源码切换）。
+                宽度可变的组放这边，名字先截断吸收掉，动作簇因此恒定；
+                窄屏它整行换到第二行并靠右（justify-end），桌面回到图标右侧占满剩余。 */}
+            <div className="order-3 flex w-full min-w-0 items-center justify-end gap-2 sm:order-2 sm:w-auto sm:flex-1 sm:justify-start sm:gap-2.5">
               <div className="min-w-0">
                 <NameText
                   as="h3"
@@ -561,7 +581,7 @@ export const MediaPreviewModal: React.FC<MediaPreviewModalProps> = ({
 
             {/* 右：恒定动作簇。里面每一段的宽度都只跟**视口**有关、不跟文件类型或名字有关，
                 ◀▶ 组在多条可预览时常驻（首末项只置灰），所以按上/下一项时它一格都不移动。 */}
-            <div className="flex shrink-0 items-center gap-1 sm:gap-1.5">
+            <div className="order-2 ml-auto flex shrink-0 items-center gap-1 sm:order-3 sm:ml-0 sm:gap-1.5">
               <button
                 type="button"
                 onClick={(e) => handleCopy(e)}
