@@ -113,6 +113,8 @@
     "dropOverlaySubtitle": "文件将通过 HTTP PUT 上传至当前目录：{{path}}",
     "panelTitle": "上传队列",
     "uploading": "上传中...",
+    "queued": "排队中 · 第 {{n}} 位",
+    "queueSummary": "上传中 {{active}} · 排队 {{waiting}}",
     "completed": "上传完成",
     "failed": "上传失败",
     "authBlocked": "需要身份认证",

@@ -113,6 +113,8 @@
     "dropOverlaySubtitle": "Files will be streamed via HTTP PUT to: {{path}}",
     "panelTitle": "Upload Queue",
     "uploading": "Uploading...",
+    "queued": "Queued · #{{n}}",
+    "queueSummary": "{{active}} uploading · {{waiting}} queued",
     "completed": "Completed",
     "failed": "Failed",
     "authBlocked": "Auth Required",
