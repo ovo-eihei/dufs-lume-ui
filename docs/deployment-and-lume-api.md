@@ -1,10 +1,10 @@
 # 部署进阶与扩展 API (`/__lume__/info` + `/__lume__/thumb`)
 
-本文给出 **dufs-lume-ui** 在生产环境配合 [Dufs (`sigoden/dufs`)](https://github.com/sigoden/dufs)、[Caddy `forward_auth`](https://caddyserver.com/docs/caddyfile/directives/forward_auth) 与 [TinyAuth](https://tinyauth.app/docs/community/caddy/) 部署扩展接口的**唯一做法**，以及运维避坑清单。
+本文给出 **dufs-lume-ui** 在生产环境配合 [Dufs (`sigoden/dufs`)](https://github.com/sigoden/dufs)、[Caddy `forward_auth`](https://caddyserver.com/docs/caddyfile/directives/forward_auth) 与 [TinyAuth](https://tinyauth.app/docs/community/caddy/) 部署扩展接口的做法，以及运维避坑清单。
 
-> `/__lume__/info` 与 `/__lume__/thumb` 由**同一个脚本、同一个监听**服务，按请求行分流；前端只用这两条扩展路由，其余全部走 Dufs 原生接口。
+> `/__lume__/info` 与 `/__lume__/thumb` 由**同一个脚本**服务，按请求行分流；前端只用这两条扩展路由，其余全部走 Dufs 原生接口。
 >
-> 监听方式只有一个：**`socat` 常驻，监听 `127.0.0.1:8090`**（宿主机原生与 `docker/` 里的 Compose 编排都是这一种）。本文不提供其它形态。
+> 扩展接口由 `socat` 常驻承载：宿主机原生部署监听 `127.0.0.1:8090`，`docker/` 的 Compose 编排监听容器网络内的 `8090`。
 
 ---
 
@@ -110,8 +110,6 @@ WantedBy=multi-user.target
 sudo systemctl daemon-reload && sudo systemctl enable --now lume-info-api.service
 curl -s http://127.0.0.1:8090/__lume__/info | head -c 200
 ```
-
-> 想让 Caddy 用别的用户身份连这个端口，不需要额外权限：TCP 回环连接只看端口可达性，不涉及文件节点权限。
 
 ---
 

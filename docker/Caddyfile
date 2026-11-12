@@ -1,6 +1,6 @@
 {
 	# 本文件是 bundle 自带的最小入口。已有 nginx/traefik/caddy 的，把下面两个 handle
-	# 抄成 6 行片段即可（见 docs/deployment-and-lume-api.md 的"接入已有反代"）。
+	# 抄成 6 行片段即可（见 docs/deployment-and-lume-api.md §4）。
 	auto_https off
 }
 
@@ -8,7 +8,7 @@
 	encode zstd gzip
 
 	# 扩展 API 必须与 UI 同源：dufs 自己不会反代任何路径，这两条路由只能由入口层给。
-	# 监听方式全项目只有一种：socat + TCP，8090 只在 compose 网络内，不对宿主发布。
+	# 8090 只在 compose 网络内，不对宿主发布。
 	handle /__lume__/info {
 		reverse_proxy lume-info-api:8090
 	}
