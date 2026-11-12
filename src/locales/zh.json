@@ -96,7 +96,8 @@
     "lines": "{{count}} 行",
     "prevFile": "上一个文件 (←)",
     "nextFile": "下一个文件 (→)",
-    "minimizeToPlayer": "收起为后台迷你播放器"
+    "minimizeToPlayer": "收起为后台迷你播放器",
+    "autoPlayBlocked": "后台音乐正在播放，未自动播放本条；点播放按钮即可开始"
   },
   "player": {
     "nowPlaying": "正在后台播放",

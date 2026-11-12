@@ -1279,6 +1279,11 @@ export default function App() {
     }
   };
 
+  /** 弹窗里的音/视频真的开始播了 → 暂停后台迷你播放器，保证全局只有一个声音 */
+  const pauseGlobalAudio = useCallback(() => {
+    if (globalAudioRef.current) globalAudioRef.current.pause();
+  }, []);
+
   const audioFiles = useMemo(
     () =>
       filteredAndSortedItems.filter(
@@ -1587,6 +1592,8 @@ export default function App() {
           }
         }}
         onClose={() => setPreviewItem(null)}
+        blockAutoPlay={isAudioPlaying}
+        onMediaPlay={pauseGlobalAudio}
         onMinimizeAudio={handleMinimizeAudio}
         onCopyLink={handleCopyDirectLink}
         onDownload={handleDownloadItem}

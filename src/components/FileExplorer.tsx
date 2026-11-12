@@ -431,9 +431,11 @@ export const FileExplorer: React.FC<FileExplorerProps> = ({
   /* ======================= LIST VIEW ======================= */
   return (
     <div className="rounded-2xl bg-white dark:bg-slate-900/90 border border-slate-200/80 dark:border-slate-800/80 shadow-sm overflow-hidden mb-16 animate-fadeIn">
-      <table className="w-full table-fixed text-left border-collapse">
+      {/* border-collapse 下 tr 的 border-radius 按规范被忽略、box-shadow 会被下一行的分隔线盖住
+          （就是「底边描边更细」的成因），所以整表改 border-separate + 描边画在 td 上 */}
+      <table className="w-full table-fixed text-left border-separate [border-spacing:0]">
         <thead>
-          <tr className="border-b border-slate-200/80 dark:border-slate-800/80 text-xs font-semibold uppercase tracking-wider text-slate-500 dark:text-slate-400 bg-slate-50/70 dark:bg-slate-900/50">
+          <tr className="[&>th]:border-b [&>th]:border-slate-200/80 dark:[&>th]:border-slate-800/80 text-xs font-semibold uppercase tracking-wider text-slate-500 dark:text-slate-400 bg-slate-50/70 dark:bg-slate-900/50">
             <th className="py-3 sm:py-3.5 pl-3 sm:pl-4 pr-0 w-10 align-middle">
               <div className="flex items-center justify-center">
                 <SelectionCheckbox
@@ -497,26 +499,38 @@ export const FileExplorer: React.FC<FileExplorerProps> = ({
             </th>
           </tr>
         </thead>
-        <tbody className="divide-y divide-slate-200/60 dark:divide-slate-800/60 text-sm">
+        <tbody className="text-sm">
           {visibleItems.map((item, idx) => {
             const isDir = isDirectory(item);
             const isCopied = copiedName === item.name;
             const isSelected = selectedNames.has(item.name);
             const isFocused = focusedIndex === idx;
             const listThumb = thumbsEnabled ? resolveThumbSrc(item, LIST_THUMB_WIDTH) : null;
+            // 选中/聚焦的描边画在每个 td 上（四边等宽，不会哪一边被盖住）；
+            // 每行都留 1px 上下边框（未选中时透明），选中时只换颜色，行高不跳。
+            const isLastVisible = idx === visibleItems.length - 1;
+            const rowTone = isSelected
+              ? '[&>td]:bg-indigo-50/75 dark:[&>td]:bg-indigo-950/35 [&>td]:border-t-indigo-500/40 [&>td]:border-b-indigo-500/40 [&>td:first-child]:border-l [&>td:first-child]:border-l-indigo-500/40 [&>td:last-child]:border-r [&>td:last-child]:border-r-indigo-500/40'
+              : isFocused
+              ? '[&>td]:bg-indigo-50/45 dark:[&>td]:bg-slate-800/75 [&>td]:border-t-indigo-500/50 [&>td]:border-b-indigo-500/50 [&>td:first-child]:border-l [&>td:first-child]:border-l-indigo-500/50 [&>td:last-child]:border-r [&>td:last-child]:border-r-indigo-500/50'
+              : `[&>td]:border-t-transparent hover:bg-indigo-50/30 dark:hover:bg-slate-800/50 ${
+                  isLastVisible
+                    ? '[&>td]:border-b-transparent'
+                    : '[&>td]:border-b-slate-200/60 dark:[&>td]:border-b-slate-800/60'
+                }`;
+            const rowRadius =
+              isSelected || isFocused
+                ? isLastVisible
+                  ? '[&>td:first-child]:rounded-tl-lg [&>td:first-child]:rounded-bl-2xl [&>td:last-child]:rounded-tr-lg [&>td:last-child]:rounded-br-2xl'
+                  : '[&>td:first-child]:rounded-l-lg [&>td:last-child]:rounded-r-lg'
+                : '';
 
             return (
               <tr
                 key={item.name}
                 data-item-index={idx}
                 onClick={(e) => handleRowOrCardClick(e, item, idx)}
-                className={`group transition-all duration-150 cursor-pointer select-none no-callout ${
-                  isSelected
-                    ? 'bg-indigo-50/75 dark:bg-indigo-950/35 ring-1 ring-inset ring-indigo-500/30'
-                    : isFocused
-                    ? 'bg-indigo-50/45 dark:bg-slate-800/75 ring-1 ring-inset ring-indigo-500/50'
-                    : 'hover:bg-indigo-50/30 dark:hover:bg-slate-800/50'
-                }`}
+                className={`group transition-all duration-150 cursor-pointer select-none no-callout [&>td]:border-y ${rowTone} ${rowRadius}`}
               >
                 <td className="py-2.5 sm:py-3 pl-3 sm:pl-4 pr-0 w-10 align-middle">
                   <div className="flex items-center justify-center">
