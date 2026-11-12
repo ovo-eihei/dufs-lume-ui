@@ -555,7 +555,7 @@ files.example.com {
         }
 
         handle /__lume__/* {
-            reverse_proxy unix//run/lume-info.sock
+            reverse_proxy lume-info-api:8090
         }
 
         reverse_proxy dufs:5000
