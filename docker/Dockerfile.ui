@@ -20,7 +20,7 @@ RUN pnpm build
 
 FROM sigoden/dufs:${DUFS_VERSION} AS dufs
 
-FROM alpine:3.22
+FROM alpine:3.24
 COPY --from=dufs /bin/dufs /usr/local/bin/dufs
 COPY --from=build /src/dist /assets
 COPY docker/entrypoint-ui.sh /usr/local/bin/entrypoint-ui.sh
