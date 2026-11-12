@@ -8,7 +8,7 @@
 # 脚本从 stdin 读一个 HTTP 请求、往 stdout 写一个 HTTP 响应，用完即退。
 #
 # 环境变量：
-#   DUFS_SERVE_PATH       : 数据根（默认 /var/lib/dufs）—— 缩略图只允许取它以内的路径
+#   DUFS_SERVE_PATH       : 数据根（默认 /data）—— 缩略图只允许取它以内的路径
 #   DUFS_ANON_PREFIX      : 公开区前缀（默认 /share），root=share 时用它做前缀白名单
 #   （无开关）data_bytes  : 默认输出，脚本每次请求跑一次 du -sk × 1024（实测数据根 0.002 s）
 #   THUMB_CACHE_DIR       : 缩略图缓存目录（默认 /var/lib/lume/thumbs，在数据根之外）
@@ -17,7 +17,7 @@
 #
 # 详细部署与性能对比见 docs/deployment-and-lume-api.md
 
-ROOT="${DUFS_SERVE_PATH:-/var/lib/dufs}"
+ROOT="${DUFS_SERVE_PATH:-/data}"
 ANON_PREFIX="${DUFS_ANON_PREFIX:-/share}"
 CACHE_DIR="${THUMB_CACHE_DIR:-/var/lib/lume/thumbs}"
 WIDTHS="${THUMB_WIDTHS:-128 256 512}"
