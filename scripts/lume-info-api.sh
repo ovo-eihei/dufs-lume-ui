@@ -4,7 +4,7 @@
 #   GET /__lume__/info                     → 登录态探测 + 实时磁盘水位 + 服务端能力位（JSON）
 #   GET /__lume__/thumb?path=/share/a.png&w=256&root=share → 缩放后的缩略图（image/jpeg|png）
 #
-# 由 socat（方案 A）或 systemd.socket（方案 B）把 Unix socket 的管道交给本脚本，
+# 由 socat 把 TCP 连接的管道交给本脚本（宿主机 127.0.0.1:8090；容器内 0.0.0.0:8090），
 # 脚本从 stdin 读一个 HTTP 请求、往 stdout 写一个 HTTP 响应，用完即退。
 #
 # 环境变量：

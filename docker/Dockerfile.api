@@ -38,18 +38,13 @@ RUN chmod 0755 /usr/local/sbin/lume-info-api.sh
 ENV DUFS_SERVE_PATH=/data \
     DUFS_ANON_PREFIX=/share \
     THUMB_CACHE_DIR=/var/cache/lume-thumbs \
-    LUME_SOCKET=/shared/lume-info.sock
+    LUME_PORT=8090
 
 VOLUME /var/cache/lume-thumbs
+EXPOSE 8090
 
-# 只监听共享卷里的 Unix socket，不开任何端口（包括容器内部）：
-# caddy 容器挂同一个卷，写 reverse_proxy unix//shared/lume-info.sock 即可。
-#
-# ⚠ rm -f 是必需的，不是 defensive 写法：SIGKILL（OOM 杀、`docker rm -f`、节点崩）后 socat
-#   来不及 unlink，socket 文件留在卷里；named volume 跟 `down` 不删（除非 `down -v`），
-#   所以下次起来 socat 直接报 `"…" exists` 进 restart 循环。裸机靠 unit 里的
-#   `ExecStartPre=-/bin/rm -f` 兜，容器里没人兜，只能写在 CMD 里。
-# ⚠ mode=0666 而不是裸机的 0660 root:caddy：两个容器没有共同的组数据库，跨容器靠的是
-#   共享卷 + 文件节点权限。caddy:2-alpine 默认以 root 跑，0666 能过；一旦你给 caddy 加了
-#   `user:`，就得自己对齐 gid（或在 compose 里给两个服务写同一个 group_add）。
-CMD ["sh", "-c", "rm -f \"$LUME_SOCKET\" && exec socat UNIX-LISTEN:\"$LUME_SOCKET\",fork,reuseaddr,mode=0666 EXEC:/usr/local/sbin/lume-info-api.sh,stderr"]
+# 只监听容器网络，不对宿主发布端口；数据根由 compose 以 :ro 挂进来。
+# 监听方式全项目只有一种（socat + TCP）：容器之间靠 compose 网络，不涉及文件节点权限，
+# 也没有 unix socket 那条「SIGKILL 后 socket 文件残留在卷里、新容器起不来」的清理账。
+# 宿主机原生部署见 docs/deployment-and-lume-api.md §2。
+CMD ["sh", "-c", "exec socat TCP-LISTEN:${LUME_PORT},bind=0.0.0.0,reuseaddr,fork EXEC:/usr/local/sbin/lume-info-api.sh,stderr"]
