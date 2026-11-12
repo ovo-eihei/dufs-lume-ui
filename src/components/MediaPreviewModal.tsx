@@ -5,6 +5,7 @@ import {
   Download,
   Link2,
   Check,
+  ExternalLink,
   Code,
   BookOpen,
   Loader2,
@@ -453,9 +454,32 @@ export const MediaPreviewModal: React.FC<MediaPreviewModalProps> = ({
   });
 
   // 必须在 early return 之前：hook 不能条件调用
+  // 按住 Ctrl/⌘ 期间，「复制直链」按钮就地变成「新窗口打开」：提示与动作始终一致
+  const [ctrlHeld, setCtrlHeld] = useState(false);
+  useEffect(() => {
+    const down = (e: KeyboardEvent) => {
+      if (e.ctrlKey || e.metaKey) setCtrlHeld(true);
+    };
+    const up = (e: KeyboardEvent) => {
+      if (!e.ctrlKey && !e.metaKey) setCtrlHeld(false);
+    };
+    const reset = () => setCtrlHeld(false);
+    window.addEventListener('keydown', down);
+    window.addEventListener('keyup', up);
+    window.addEventListener('blur', reset);
+    return () => {
+      window.removeEventListener('keydown', down);
+      window.removeEventListener('keyup', up);
+      window.removeEventListener('blur', reset);
+    };
+  }, []);
+
   const copyLongPress = useLongPressAction();
 
   if (!rendered || !activeItem) return null;
+
+  // 演示模式的直链是 data: URI，顶层导航会被 Chrome 拦 ⇒ 只在真实部署里给「打开」
+  const showOpen = ctrlHeld && !isDemoMode;
 
   const handleCopy = (e?: React.MouseEvent) => {
     // 三个入口同一个动作：Ctrl/⌘ + 点击，或移动端长按。长按的执行放在抬手后的 click 里，
@@ -510,33 +534,9 @@ export const MediaPreviewModal: React.FC<MediaPreviewModalProps> = ({
               </div>
             </div>
 
-            {/* Actions: 永远不换行、永远靠右；✕ 在簇尾（也就是右上角） */}
+            {/* Actions: 永远不换行、永远靠右。顺序是「宽度会变的在左、要稳的在右」：
+                ◀▶ 与 ✕ 钉在簇尾，所以渲染/源码切换、迷你播放器按钮出现或消失都顶不到它们。 */}
             <div className="flex shrink-0 items-center gap-1 sm:gap-1.5">
-              {(hasPrev || hasNext) && (
-                <div className="inline-flex items-center p-0.5 rounded-xl bg-slate-100 dark:bg-slate-800 border border-slate-200/60 dark:border-slate-700/60">
-                  <button
-                    type="button"
-                    disabled={!hasPrev}
-                    onClick={onPrev}
-                    title={t('preview.prevFile')}
-                    aria-label={t('preview.prevFile')}
-                    className="p-1.5 rounded-lg text-slate-600 dark:text-slate-300 hover:bg-white dark:hover:bg-slate-900 disabled:opacity-35 disabled:pointer-events-none active:scale-90 transition-all"
-                  >
-                    <ChevronLeft className="w-4 h-4" />
-                  </button>
-                  <button
-                    type="button"
-                    disabled={!hasNext}
-                    onClick={onNext}
-                    title={t('preview.nextFile')}
-                    aria-label={t('preview.nextFile')}
-                    className="p-1.5 rounded-lg text-slate-600 dark:text-slate-300 hover:bg-white dark:hover:bg-slate-900 disabled:opacity-35 disabled:pointer-events-none active:scale-90 transition-all"
-                  >
-                    <ChevronRight className="w-4 h-4" />
-                  </button>
-                </div>
-              )}
-
               {(category === 'markdown' || category === 'html') && (
                 <div className="inline-flex p-0.5 rounded-xl bg-slate-200/70 dark:bg-slate-800">
                   <button
@@ -587,15 +587,24 @@ export const MediaPreviewModal: React.FC<MediaPreviewModalProps> = ({
                 onClick={(e) => handleCopy(e)}
                 {...copyLongPress.handlers}
                 title={t('preview.copyDirectLinkHint')}
-                aria-label={t('preview.copyDirectLink')}
-                className="inline-flex items-center justify-center gap-1.5 p-1.5 sm:p-2 sm:px-3 sm:py-1.5 rounded-xl text-xs font-medium bg-slate-100 hover:bg-slate-200 dark:bg-slate-800 dark:hover:bg-slate-700 text-slate-700 dark:text-slate-200 active:scale-95 transition-all"
+                aria-label={showOpen ? t('preview.openDirectLink') : t('preview.copyDirectLink')}
+                className={`inline-flex items-center justify-center gap-1.5 p-1.5 sm:p-2 sm:px-3 sm:py-1.5 rounded-xl text-xs font-medium active:scale-95 transition-all ${
+                  showOpen
+                    ? 'bg-indigo-500/15 text-indigo-600 dark:text-indigo-300 hover:bg-indigo-500/25'
+                    : 'bg-slate-100 hover:bg-slate-200 dark:bg-slate-800 dark:hover:bg-slate-700 text-slate-700 dark:text-slate-200'
+                }`}
               >
-                {copied ? (
+                {showOpen ? (
+                  <ExternalLink className="w-3.5 h-3.5" />
+                ) : copied ? (
                   <Check className="w-3.5 h-3.5 text-emerald-500" />
                 ) : (
                   <Link2 className="w-3.5 h-3.5" />
                 )}
-                <span className="hidden md:inline">{t('preview.copyDirectLink')}</span>
+                {/* 标签槽位定宽：文案从「复制直链」变「新窗口打开」时不把自己撑宽 */}
+                <span className="hidden md:inline w-[4.75rem] text-left">
+                  {showOpen ? t('preview.openDirectLink') : t('preview.copyDirectLink')}
+                </span>
               </button>
 
               <button
@@ -607,6 +616,31 @@ export const MediaPreviewModal: React.FC<MediaPreviewModalProps> = ({
                 <Download className="w-3.5 h-3.5" />
                 <span className="hidden md:inline">{t('preview.downloadRaw')}</span>
               </button>
+
+              {(hasPrev || hasNext) && (
+                <div className="inline-flex items-center p-0.5 rounded-xl bg-slate-100 dark:bg-slate-800 border border-slate-200/60 dark:border-slate-700/60">
+                  <button
+                    type="button"
+                    disabled={!hasPrev}
+                    onClick={onPrev}
+                    title={t('preview.prevFile')}
+                    aria-label={t('preview.prevFile')}
+                    className="p-1.5 rounded-lg text-slate-600 dark:text-slate-300 hover:bg-white dark:hover:bg-slate-900 disabled:opacity-35 disabled:pointer-events-none active:scale-90 transition-all"
+                  >
+                    <ChevronLeft className="w-4 h-4" />
+                  </button>
+                  <button
+                    type="button"
+                    disabled={!hasNext}
+                    onClick={onNext}
+                    title={t('preview.nextFile')}
+                    aria-label={t('preview.nextFile')}
+                    className="p-1.5 rounded-lg text-slate-600 dark:text-slate-300 hover:bg-white dark:hover:bg-slate-900 disabled:opacity-35 disabled:pointer-events-none active:scale-90 transition-all"
+                  >
+                    <ChevronRight className="w-4 h-4" />
+                  </button>
+                </div>
+              )}
 
               <button
                 type="button"
