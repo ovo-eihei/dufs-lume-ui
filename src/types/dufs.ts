@@ -5,6 +5,12 @@ export interface DufsPathItem {
   path_type: DufsPathType;
   mtime: number; // Unix timestamp in milliseconds
   size?: number; // Size in bytes (undefined or 0 for directories)
+  /**
+   * 该条目**所在目录**的绝对路径（含 uri_prefix、带尾斜杠），由 fetchDirectoryJson 加载时盖上。
+   * dufs 的 JSON 条目本身没有 path 字段（只有 path_type/name/mtime/size），所以「这个文件在哪」
+   * 只能由加载它的那次目录请求确定 ⇒ 拼 URL 一律用它，不要用当前页的 href。
+   */
+  originBase?: string;
   /** Optional inline mock content for demo preview mode */
   demoContent?: string;
   demoMediaUrl?: string;
