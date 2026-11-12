@@ -1,0 +1,47 @@
+name: CodeQL
+
+# 代码扫描（CodeQL）。⚠ 这个 job 只在仓库**公开**后才会执行：
+# 私有仓库要 GitHub Advanced Security 授权才能接收 SARIF，没有授权时上传会直接失败，
+# 于是工作流常年一片红。转公开之后无需改动，下一次触发就自动开始扫描。
+
+on:
+  push:
+    branches: [main]
+  pull_request:
+    branches: [main]
+  schedule:
+    - cron: '13 3 * * 1' # 每周一 03:13 UTC
+  workflow_dispatch:
+
+permissions:
+  contents: read
+  actions: read
+  security-events: write
+
+concurrency:
+  group: codeql-${{ github.ref }}
+  cancel-in-progress: true
+
+jobs:
+  analyze:
+    name: 扫描 ${{ matrix.language }}
+    if: github.event.repository.private == false
+    runs-on: ubuntu-latest
+    timeout-minutes: 30
+    strategy:
+      fail-fast: false
+      matrix:
+        language: [javascript-typescript, actions]
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: 初始化 CodeQL
+        uses: github/codeql-action/init@v3
+        with:
+          languages: ${{ matrix.language }}
+
+      # 本项目的前端产物由 CI 工作流构建，CodeQL 只需直接分析源码，不需要 autobuild。
+      - name: 执行分析
+        uses: github/codeql-action/analyze@v3
+        with:
+          category: /language:${{ matrix.language }}
