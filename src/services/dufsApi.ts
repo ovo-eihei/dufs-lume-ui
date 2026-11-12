@@ -6,6 +6,7 @@ import {
   ServerInfo,
   ThumbsCapability,
 } from '../types/dufs';
+import { joinUrlPath } from '../utils/format';
 
 export class DufsAuthError extends Error {
   status: number;
@@ -146,7 +147,13 @@ export async function fetchDirectoryJson(dirUrl: string): Promise<DufsIndexData>
   if (!res.ok) {
     throw new Error(`HTTP ${res.status}: ${res.statusText}`);
   }
-  return (await res.json()) as DufsIndexData;
+  const data = (await res.json()) as DufsIndexData;
+  // 盖一条「我在哪个目录」⇒ 之后所有 URL 由它拼，不再跟着当前页跑（跨目录播放/预览时当前页会变）
+  const base = joinUrlPath(data.uri_prefix ?? '', data.href);
+  return {
+    ...data,
+    paths: (data.paths ?? []).map((p) => ({ ...p, originBase: base })),
+  };
 }
 
 /** Extension API endpoint for session verification, storage metrics, and capability discovery. */
