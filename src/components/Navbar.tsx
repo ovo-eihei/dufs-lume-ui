@@ -61,7 +61,9 @@ interface NavbarProps {
   onTriggerUploadClick: () => void;
   onOpenPasteModal: () => void;
   onOpenMkdirModal: () => void;
-  searchInputRef: React.RefObject<HTMLInputElement>;
+  // React 19 的 `useRef<HTMLInputElement>(null)` 返回 `RefObject<HTMLInputElement | null>`，
+  // 类型不再等价于 `RefObject<HTMLInputElement>` ⇒ 这里必须跟着放宽（19 唯一一处编译影响）。
+  searchInputRef: React.RefObject<HTMLInputElement | null>;
 }
 
 export const Navbar: React.FC<NavbarProps> = ({
