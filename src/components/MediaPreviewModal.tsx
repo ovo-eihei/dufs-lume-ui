@@ -80,7 +80,6 @@ interface MediaPreviewModalProps {
   hasPrev?: boolean;
   hasNext?: boolean;
   /** 可预览序列里的位置与总数：>1 时 ◀▶ 组**常驻**并显示「当前 / 总数」，到首末项只置灰不消失 */
-  navIndex?: number;
   navCount?: number;
   onPrev?: () => void;
   onNext?: () => void;
@@ -350,7 +349,6 @@ export const MediaPreviewModal: React.FC<MediaPreviewModalProps> = ({
   onRequestDisableSandbox,
   hasPrev = false,
   hasNext = false,
-  navIndex = 0,
   navCount = 0,
   onPrev,
   onNext,
@@ -629,10 +627,6 @@ export const MediaPreviewModal: React.FC<MediaPreviewModalProps> = ({
                   >
                     <ChevronLeft className="w-4 h-4" />
                   </button>
-                  {/* 定位槽定宽 + 等宽数字：从 9/10 走到 10/10 也不会把两个箭头挤开 */}
-                  <span className="w-[4.25rem] shrink-0 text-center font-mono text-[11px] tabular-nums text-slate-500 dark:text-slate-400 select-none">
-                    {navIndex + 1} / {navCount}
-                  </span>
                   <button
                     type="button"
                     disabled={!hasNext}

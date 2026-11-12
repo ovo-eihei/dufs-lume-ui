@@ -1652,7 +1652,6 @@ export default function App() {
         onRequestDisableSandbox={requestDisableSandbox}
         hasPrev={currentPreviewIndex > 0}
         hasNext={currentPreviewIndex >= 0 && currentPreviewIndex < previewableItems.length - 1}
-        navIndex={currentPreviewIndex}
         navCount={previewableItems.length}
         onPrev={() => {
           if (currentPreviewIndex > 0) {
