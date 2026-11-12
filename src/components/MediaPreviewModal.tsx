@@ -5,7 +5,6 @@ import {
   Download,
   Link2,
   Check,
-  ExternalLink,
   Code,
   BookOpen,
   Loader2,
@@ -26,6 +25,7 @@ import { FileIconBadge } from './FileIconBadge';
 import NameText from './NameText';
 import { createDemoSvgDataUri, createDemoWavDataUri } from '../utils/demoAssets';
 import { useModalTransition } from '../utils/useModalTransition';
+import { useLongPressAction } from '../utils/useLongPressAction';
 
 const SandboxHintBar: React.FC<{ onDisable: () => void }> = ({ onDisable }) => {
   const { t } = useTranslation();
@@ -452,9 +452,18 @@ export const MediaPreviewModal: React.FC<MediaPreviewModalProps> = ({
     return () => window.removeEventListener('keydown', handleKeyDown);
   });
 
+  // 必须在 early return 之前：hook 不能条件调用
+  const copyLongPress = useLongPressAction();
+
   if (!rendered || !activeItem) return null;
 
-  const handleCopy = () => {
+  const handleCopy = (e?: React.MouseEvent) => {
+    // 三个入口同一个动作：Ctrl/⌘ + 点击，或移动端长按。长按的执行放在抬手后的 click 里，
+    // 因为 window.open 必须在用户手势里发起，定时器里弹会被浏览器当成弹窗拦掉。
+    if (!isDemoMode && (copyLongPress.takeIfLongPress() || e?.ctrlKey || e?.metaKey)) {
+      window.open(activeUrl, '_blank', 'noopener');
+      return;
+    }
     onCopyLink(activeItem);
     setCopied(true);
     setTimeout(() => setCopied(false), 1800);
@@ -480,11 +489,13 @@ export const MediaPreviewModal: React.FC<MediaPreviewModalProps> = ({
         }`}
         onClick={(e) => e.stopPropagation()}
       >
-        {/* Top Header */}
-        <div className="relative px-3 pr-12 py-2.5 sm:px-5 sm:pr-14 sm:py-3 border-b border-slate-200 dark:border-slate-800 bg-slate-50/70 dark:bg-slate-900/60 shrink-0">
-          <div className="flex flex-wrap items-center gap-x-3 gap-y-1.5">
+        {/* Top Header — 单行不换行：宽度不够时**名字截断**（全名另有 hover / 长按气泡），
+            动作簇永远留在同一行右侧，上/下一项不再随文件名长短跳位；
+            关闭按钮是簇里最后一个，靠 flex items-center 对齐，不会再和其他按钮垂直错位。 */}
+        <div className="px-3 py-2.5 sm:px-5 sm:py-3 border-b border-slate-200 dark:border-slate-800 bg-slate-50/70 dark:bg-slate-900/60 shrink-0">
+          <div className="flex items-center gap-x-3">
             {/* Title block: icon + name, size/mtime directly under the name */}
-            <div className="flex min-w-[13rem] flex-1 items-center gap-2 sm:gap-2.5">
+            <div className="flex min-w-0 flex-1 items-center gap-2 sm:gap-2.5">
               <FileIconBadge item={activeItem} size="sm" />
               <div className="min-w-0">
                 <NameText
@@ -499,8 +510,8 @@ export const MediaPreviewModal: React.FC<MediaPreviewModalProps> = ({
               </div>
             </div>
 
-            {/* Actions: beside the title when there is room, wrapped right-aligned otherwise */}
-            <div className="flex items-center gap-1 sm:gap-1.5 shrink-0">
+            {/* Actions: 永远不换行、永远靠右；✕ 在簇尾（也就是右上角） */}
+            <div className="flex shrink-0 items-center gap-1 sm:gap-1.5">
               {(hasPrev || hasNext) && (
                 <div className="inline-flex items-center p-0.5 rounded-xl bg-slate-100 dark:bg-slate-800 border border-slate-200/60 dark:border-slate-700/60">
                   <button
@@ -573,8 +584,10 @@ export const MediaPreviewModal: React.FC<MediaPreviewModalProps> = ({
 
               <button
                 type="button"
-                onClick={handleCopy}
-                title={t('preview.copyDirectLink')}
+                onClick={(e) => handleCopy(e)}
+                {...copyLongPress.handlers}
+                title={t('preview.copyDirectLinkHint')}
+                aria-label={t('preview.copyDirectLink')}
                 className="inline-flex items-center justify-center gap-1.5 p-1.5 sm:p-2 sm:px-3 sm:py-1.5 rounded-xl text-xs font-medium bg-slate-100 hover:bg-slate-200 dark:bg-slate-800 dark:hover:bg-slate-700 text-slate-700 dark:text-slate-200 active:scale-95 transition-all"
               >
                 {copied ? (
@@ -595,32 +608,17 @@ export const MediaPreviewModal: React.FC<MediaPreviewModalProps> = ({
                 <span className="hidden md:inline">{t('preview.downloadRaw')}</span>
               </button>
 
-              {!isDemoMode && (
-                <a
-                  href={activeUrl}
-                  target="_blank"
-                  rel="noopener noreferrer"
-                  title={t('preview.openInNewTab')}
-                  className="p-2 rounded-xl text-slate-500 hover:text-slate-800 dark:text-slate-400 dark:hover:text-slate-200 hover:bg-slate-100 dark:hover:bg-slate-800 active:scale-90 transition-all"
-                >
-                  <ExternalLink className="w-4 h-4" />
-                </a>
-              )}
-
+              <button
+                type="button"
+                onClick={handleCloseOrMinimize}
+                title={t('preview.close')}
+                aria-label={t('preview.close')}
+                className="p-2 rounded-xl text-slate-500 hover:text-slate-900 dark:text-slate-400 dark:hover:text-white hover:bg-slate-100 dark:hover:bg-slate-800 active:scale-90 transition-all"
+              >
+                <X className="w-4 h-4" />
+              </button>
             </div>
           </div>
-
-          {/* Close stays pinned in the true top-right corner */}
-          <button
-            type="button"
-            onClick={handleCloseOrMinimize}
-            title={t('preview.close')}
-            aria-label={t('preview.close')}
-            className="absolute right-2 top-2 sm:right-3 sm:top-3 p-2 rounded-xl text-slate-500 hover:text-slate-900 dark:text-slate-400 dark:hover:text-white hover:bg-slate-100 dark:hover:bg-slate-800 active:scale-90 transition-all"
-          >
-            <X className="w-4 h-4" />
-          </button>
-
         </div>
 
         {/* Modal Body */}
