@@ -54,9 +54,16 @@
 
 ### 选型建议与 `du -sb` 性能说明
 
-1. **追求单次响应最快、以后可能容器化**：选 **方案 A (`socat` + Unix Socket)**。直接 `fork()` 比初始化临时 systemd 单元快一个数量级，且同样不占 TCP 端口。⚠ 代价：`socat` 常需自行安装（Debian 12 候选版本 `1.7.4.4-2`）。
+1. **方案 A (`socat` + Unix Socket) 是两种部署的默认**：宿主机原生（本仓库 `scripts/` 的 unit 写法）与 Docker bundle（`docker/` 三件套，走共享 named volume）**都用 A**。⚠ 代价：`socat` 常需自行安装（Debian 12 候选版本 `1.7.4.4-2`）。
 2. **追求 0 常驻进程、宿主机原生部署**：选 **方案 B (`systemd.socket`)**。平时 `ps aux` 中没有任何额外常驻进程，单次请求多出的几毫秒对人类完全无感，且**零新依赖**。
-3. **`df` 与 `du` 的开销（实测，不是推测）**：
+3. **A 到底比 C 快多少（容器内端到端实测，不是推算）**：同一份脚本、`caddy:2-alpine` + `socat` 两个容器挂同一个 named volume，30 次 `/__lume__/info` 经 caddy 的 `time_total`（min / 中位 / max，单位秒）：
+   - unix：`0.0322 / 0.0374 / 0.0869`
+   - TCP：`0.0337 / 0.0371 / 0.0683`
+   ⇒ **差 < 1 ms**，被脚本自身那 ~33 ms（`fork sh` + `df -P` + `du -sk`）整个吃掉。上表里「不走 TCP 栈」这一项在 bundle 场景本来就不成立：TCP 只在 bridge 内部，端口不对宿主发布、包不出 veth，全在内核里。选 A 的理由是**少一个端口、少一条网络依赖**，不是快。
+4. **容器化用 A 要多付两条账（都实测到）**：
+   - **stale socket**：SIGKILL（OOM 杀、`docker rm -f`、节点崩）后 socat 来不及 unlink，卷里的 socket 文件残留 ⇒ 新容器直接 `E "…" exists` 起不来并进 restart 循环；named volume 跨 `down` 不删（除非 `down -v`），所以这个坑不会自愈。⇒ `Dockerfile.api` 的 CMD 必须先 `rm -f "$LUME_SOCKET"` 再 `exec`（裸机那条是靠 unit 里的 `ExecStartPre=-/bin/rm -f` 兜的）。
+   - **权限契约**：socket 是文件系统节点，跨容器靠共享卷 + UID 对齐。`caddy:2-alpine` 以 root 跑，所以 `mode=0666` 能过；裸机那套 `0660 root:caddy` 在容器里没意义（两个容器没有共同的组数据库），一旦给 caddy 加 `user:` 就必须显式对齐 gid。
+5. **`df` 与 `du` 的开销（实测，不是推测）**：
    - `df -P -k` 只读一次超级块（`statfs`），**< 0.2 ms**，与磁盘大小无关。
    `du -sk` 要递归遍历 inode：数据根 12 个文件 **0.002 s**；造 2 万个文件 **0.054 s** ⇒ 每请求跑一次完全可接受，所以 `data_bytes` **默认输出**。文件数到数十万级时才需要考虑缓存。
    - ⚠ 用 `-sk` 而不是 `-sb`：busybox(alpine) 的 `du` 没有 `-b`；`df` 同理不用 GNU 的 `-B1/--output`，否则在 busybox 上直接回 usage。乘 1024 交给 shell 算术，**别在 awk 里乘**（mawk 按 `%g` 输出成 `3.16728e+10`，既不是合法 JSON 整数又丢精度）。
