@@ -621,10 +621,8 @@ ROOT="\${DUFS_SERVE_PATH:-/data}"
 set -- $(df -P -k "$ROOT" | tail -n 1)
 FREE=$(( \${4:-0} * 1024 ))
 DATA=$(( $(du -sk "$ROOT" 2>/dev/null | cut -f1) * 1024 ))
-NOW=$(date -Iseconds)
 
-BODY=$(printf '{"generated_at":"%s","path":"%s","free_bytes":%s,"data_bytes":%s}' \\
-  "$NOW" "$ROOT" "$FREE" "\${DATA:-0}")
+BODY=$(printf '{"free_bytes":%s,"data_bytes":%s}' "$FREE" "\${DATA:-0}")
 
 printf "HTTP/1.1 200 OK\\r\\nContent-Type: application/json; charset=utf-8\\r\\nCache-Control: no-store\\r\\nContent-Length: %d\\r\\nConnection: close\\r\\n\\r\\n%s" \\
   "\${#BODY}" "$BODY"

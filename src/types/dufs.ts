@@ -55,10 +55,6 @@ export type ThumbsCapability = boolean | { enabled: true; widths?: number[] };
  * simultaneously verifies authentication status, reads storage metrics, and discovers server capabilities.
  */
 export interface ServerInfo {
-  /** ISO-8601 timestamp when metrics were generated */
-  generated_at: string;
-  /** Absolute path of the Dufs data root on the host/container */
-  path: string;
   /** Available free bytes on the underlying filesystem */
   free_bytes: number;
   /** Total bytes used by the Dufs data directory itself (`du -sk` * 1024) */

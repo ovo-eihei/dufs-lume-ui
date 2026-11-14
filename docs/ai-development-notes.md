@@ -14,7 +14,7 @@
 
 - 2A **构建与类型**：`pnpm build` = `tsc -b && vite build`，类型检查与构建必须全绿才提交。构建是确定性的：同一份源码重跑，产物文件名里的 hash 不变。
 - 2B **换皮是否真的生效**：用带浏览器形态请求头的 `curl` 打回环端口验证（`Accept: text/html` + `Mozilla/5.0`）。⚠ Dufs 按 `Accept` 分流：`Accept: */*` 拿到的是它内置的极简页，不是我们的 `index.html`。
-- 2C **扩展 API 的安全闸门**：`scripts/lume-info-api.sh` 的 7 条判据（绝对路径、`..` 拒绝、控制字符拒绝、软链接逃逸拒绝、公开区前缀、扩展名白名单、缓存不可写回 500）用假图像工具链 + 真实工具链各跑过一遍，期望响应码见部署文档 §7。
+- 2C **扩展 API 的安全闸门**：`scripts/lume-info-api.sh` 的 7 条判据（绝对路径、`..` 拒绝、控制字符拒绝、软链接逃逸拒绝、公开区前缀、扩展名白名单、缓存不可写回 500）用假图像工具链 + 真实工具链各跑过一遍，期望响应码见部署文档 §6。
 - 2D **Docker 编排端到端**：`docker compose up -d --build` 在 Linux/amd64 上完整跑通过 —— 三容器起来、健康检查 `(healthy)`、`/__lume__/info` 能力位、`/__lume__/thumb` 出图、静态资源经 Caddy 与磁盘逐字节一致、品牌注入含引号/反斜杠/`&` 的值能正确往返。
 - 2E **界面行为**：依赖真实浏览器人工验收（点击、长按、键盘、窄屏布局）。**没有自动化 UI 测试**，所以任何"这个按钮能用"的结论都来自人工操作，不来自测试套件。
 
@@ -22,7 +22,7 @@
 
 - 3A **没有单元测试、没有集成测试、没有 E2E 测试框架**。仓库里不存在测试目录，`package.json` 也没有 `test` 脚本 —— 别指望"能构建"等于"行为正确"。
 - 3B **没有独立安全审计**。没有第三方代码审查，没有渗透测试，没有对 `scripts/lume-info-api.sh`（POSIX sh，直接处理未信任输入并调用外部命令）做过形式化的输入面分析。
-- 3C **没有依赖扫描**。没有跑 `pnpm audit` / Snyk / Dependabot 配置，没有锁定上游镜像的摘要（`sigoden/dufs:v0.47.0` 按 tag 取，不是按 digest）。
+- 3C **依赖扫描只做了一半。** CI 会跑 `pnpm audit --audit-level=high`，但那一步带 `continue-on-error: true` ⇒ **只报告、不拦门**。Dependabot 已配三个生态（`.github/dependabot.yml`：npm / github-actions / docker，每周一次），但每条 PR 是否合并由维护者逐条决定。上游镜像仍然**没有按 digest 锁定**，而且自动化覆盖不均：`caddy:2-alpine` 在 `docker/compose.yaml` 里是字面量 ⇒ Dependabot 能提；`sigoden/dufs:${DUFS_VERSION}` 取自 ARG 默认值 ⇒ **Dependabot 看不见，Dufs 升版只能手动**（与 `Dockerfile.api` 的 alpine `ARG BASE` 同一个坑）。没有跑过 Snyk。
 - 3D **没有可访问性（a11y）审查**，也没有做过屏幕阅读器验证；键盘导航只覆盖了自己实现的那部分。
 - 3E **没有跨浏览器矩阵测试**。主要验证环境是 Chrome/Chromium 与 iOS Safari 的近期版本；Firefox、Safari 桌面版、旧版 WebView 未系统验证。
 - 3F **没有性能基准套件**。文档里的耗时是单次实测样本，不是统计结果。
@@ -33,14 +33,14 @@
 - 4A **鉴权不在本项目手里**。前端没有任何访问控制能力 —— 它只是根据请求是否被网关 `302/401` 来判断"我是不是访客"。真正的边界在你的反向代理（Caddy `forward_auth`）和 Dufs 自己的 `--auth` / `DUFS_AUTH`。**Dufs 未配任何 `-a` 规则时，接口返回的 `user` 恒为 `null`、`allow_upload` 恒为 `true`**，前端无法据此区分登录态。
 - 4B **Docker bundle 默认不带鉴权**，且只绑回环。把它直接暴露公网之前，请先读 `README` 的 Docker 一节里那两条警告。
 - 4C **HTML 预览的沙箱是缓解措施，不是保证**。默认 `sandbox="allow-scripts"` 且不含 `allow-same-origin`；用户可以在二次确认后关闭沙箱 —— 关闭之后，被预览的页面就是同源页面，能读到该会话能读到的一切。浏览不可信 `.html` 时不要关。
-- 4D **扩展 API 的可达范围 = 它挂载的数据根**。脚本只允许访问 `DUFS_SERVE_PATH` 之内、且解析软链接后仍在其中的路径；容器编排里这份挂载是只读的。如果你把 `/__lume__/thumb` 开在鉴权之外（部署文档 §6(4)），`root=share` 就是唯一防线，务必用覆盖语义 `set_query` 而不是 `replace_query`。
+- 4D **扩展 API 的可达范围 = 它挂载的数据根**。脚本只允许访问 `DUFS_SERVE_PATH` 之内、且解析软链接后仍在其中的路径；容器编排里这份挂载是只读的。如果你把 `/__lume__/thumb` 开在鉴权之外（部署文档 §4 可选 (4)），`root=share` 就是唯一防线，务必用覆盖语义 `set_query` 而不是 `replace_query`。
 - 4E **缩略图缓存目录在数据根之外**（默认 `/var/lib/lume/thumbs`，容器里是独立卷），所以它不会污染网盘内容，但它本身包含原图的缩放副本 —— 备份/同步时请把它当作敏感数据对待。
 - 4F **本项目不处理多用户权限**。谁能读、谁能写、谁能删，全部由 Dufs 的鉴权规则与反代决定；前端只是把 Dufs 返回的 `allow_*` 标志画成按钮。
 
 ## 5. 用之前建议你自己做的功课
 
 - 5A 读一遍 `scripts/lume-info-api.sh`（唯一直接处理不可信输入并调用外部命令的部分）和 `src/services/dufsApi.ts`。
-- 5B 先在你自己的机器上跑一遍部署文档 §7 的自检命令，确认响应码与文档一致。
+- 5B 先在你自己的机器上跑一遍部署文档 §6 的自检命令，确认响应码与文档一致。
 - 5C 上线前至少：给实例配一条真鉴权规则、确认 `DATA_DIR` 权限、跑一次 `pnpm audit`、把 `docker compose ps` 与 `curl /__lume__/info` 的输出留档。
 - 5D 如果你要改前端，注意构建产物文件名带 content hash 且被 Dufs 标记为 `immutable` —— 发布必须整目录替换并**重启 Dufs**（它只在启动时读一次 `index.html`）。
 

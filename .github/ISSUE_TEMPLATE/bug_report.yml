@@ -55,7 +55,7 @@ body:
       description: 浏览器开发者工具里失败请求的 URL 与状态码；涉及 `/__lume__/*` 时请一并给出 `/__lume__/info` 的返回内容（**请先抹掉域名、token 与任何凭据**）
       placeholder: |
         GET /__lume__/thumb?path=%2Fshare%2Fa.png&w=256 → 503
-        GET /__lume__/info → {"generated_at":"…","path":"/data","free_bytes":…,"thumbs":{"enabled":false}}
+        GET /__lume__/info → {"free_bytes":…,"data_bytes":…,"thumbs":{"enabled":false}}
   - type: checkboxes
     id: checks
     attributes:
