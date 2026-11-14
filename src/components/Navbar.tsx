@@ -543,7 +543,6 @@ export const Navbar: React.FC<NavbarProps> = ({
 
                   {serverInfo && typeof serverInfo.free_bytes === 'number' && authState === 'authenticated' && (
                     <div
-                      title={serverInfo.path || undefined}
                       className="flex items-center gap-1.5 px-1 text-[11px] font-mono text-slate-400 dark:text-slate-500"
                     >
                       <HardDrive className="w-3 h-3 text-indigo-500 shrink-0" />

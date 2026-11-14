@@ -45,8 +45,6 @@ respond_file() { # $1=ctype $2=file —— 二进制直发，缓存命中时不�
   cat "$2"
 }
 
-json_escape() { printf '%s' "$1" | sed 's/\\/\\\\/g; s/"/\\"/g'; }
-
 # ---------- 能力探测 ----------
 # 精简系统里常常一个图像工具都没有；缺工具时能力位报 false，前端自然降级（不是故障）
 # 装完 libvips-tools 之后这里才会自动亮起来 ⇒ 前端据此决定「服务器注册 ⇒ 用服务端预览」。
@@ -77,8 +75,10 @@ serve_info() {
   # du -sk 每请求跑一次（实测数据根 0.002 s / 2 万文件 0.054 s）⇒ 默认输出，不做开关。
   KB=$(du -sk "$ROOT" 2>/dev/null | cut -f1)             # busybox du 没有 -b ⇒ 用 -sk 再乘 1024
   DATA=$(( ${KB:-0} * 1024 ))
-  BODY=$(printf '{"generated_at":"%s","path":"%s","free_bytes":%s,"data_bytes":%s,"thumbs":%s}' \
-    "$NOW" "$(json_escape "$ROOT")" "$FREE" "$DATA" "$CAP")
+  # 不输出 path：数据根的绝对路径对前端没有任何用处（它只喂过磁盘小部件的悬浮提示），
+  # 却把宿主机/容器的文件系统布局告诉浏览器 ⇒ 少说一个字段更省事。
+  BODY=$(printf '{"generated_at":"%s","free_bytes":%s,"data_bytes":%s,"thumbs":%s}' \
+    "$NOW" "$FREE" "$DATA" "$CAP")
   respond 200 OK application/json '' "$BODY"
 }
 
