@@ -253,8 +253,6 @@ export default function App() {
   const [serverInfo, setServerInfo] = useState<ServerInfo | null>(() =>
     isDemoMode
       ? {
-          generated_at: new Date().toISOString(),
-          path: '/data',
           free_bytes: 68719476736, // 64 GiB
           data_bytes: 4294967296, // 4 GiB
           thumbs: { enabled: true, widths: [128, 256, 512] },
@@ -263,12 +261,8 @@ export default function App() {
   );
 
   const reloadServerInfo = useCallback(() => {
-    if (isDemoMode) {
-      setServerInfo((prev) =>
-        prev ? { ...prev, generated_at: new Date().toISOString() } : null
-      );
-      return;
-    }
+    // demo 的假水位是常量，没有“重新拉取”可言
+    if (isDemoMode) return;
     fetchServerInfo(joinUrlPath(indexData.uri_prefix, '/')).then(setServerInfo);
   }, [isDemoMode, indexData.uri_prefix]);
 
