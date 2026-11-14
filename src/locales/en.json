@@ -100,6 +100,16 @@
     "minimizeToPlayer": "Minimize to Mini Audio Player",
     "autoPlayBlocked": "Background music is playing, so this item did not start automatically — press play."
   },
+  "imageViewer": {
+    "zoomIn": "Zoom in (+)",
+    "zoomOut": "Zoom out (-)",
+    "fit": "Fit to window (0)",
+    "actual": "Actual pixels 1:1 (1)",
+    "loading": "Loading image...",
+    "failed": "Failed to load image",
+    "failedHint": "The file may have moved or been renamed, or this directory requires sign-in.",
+    "retry": "Retry"
+  },
   "player": {
     "nowPlaying": "Playing in background",
     "playing": "Playing",
