@@ -27,7 +27,8 @@ updates:
       timezone: Asia/Shanghai
     open-pull-requests-limit: 3
 
-  # docker/ 里的基础镜像（dufs 与 caddy 都按 tag 引用，见 docs/ai-development-notes.md 3C）
+  # docker/ 里的基础镜像：只有 compose.yaml 里的字面量（`caddy:2-alpine`）会被自动提；
+  # 取自 ARG 默认值的（Dockerfile.ui 的 sigoden/dufs、Dockerfile.api 的 ARG BASE）dependabot 看不见 ⇒ 必须手动升，见 docs/ai-development-notes.md 3C
   - package-ecosystem: docker
     directories:
       - "/docker"
