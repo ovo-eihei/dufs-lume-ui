@@ -112,6 +112,17 @@
   animation: lumeModalOut 0.16s cubic-bezier(0.16, 1, 0.3, 1) forwards;
 }
 
+/* 详情弹窗「原地展开」（FLIP，实现见 MediaPreviewModal 的 startFly）：飞行途中把面板内容压掉 ——
+   非等比缩放会把文字与图拉糊；面板自身的底图 = 点击那张缩略图，所以看到的是「图片从原地放大」。
+   落位后 data-fly 撤掉，子元素沿上面这条 transition 淡入。 */
+.lume-fly-panel > * {
+  transition: opacity 130ms ease-out;
+}
+
+.lume-fly-panel[data-fly='1'] > * {
+  opacity: 0;
+}
+
 .animate-dropdownIn {
   animation: lumeDropdownIn 0.18s cubic-bezier(0.16, 1, 0.3, 1) forwards;
 }

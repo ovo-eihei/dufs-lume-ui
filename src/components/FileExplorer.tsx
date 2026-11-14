@@ -24,6 +24,7 @@ import {
   normalizeDirHref,
 } from '../utils/format';
 import { buildThumbUrl } from '../services/dufsApi';
+import { rememberOpenOrigin } from '../utils/openOrigin';
 import { createDemoSvgDataUri } from '../utils/demoAssets';
 import { FileIconBadge } from './FileIconBadge';
 
@@ -248,6 +249,23 @@ export const FileExplorer: React.FC<FileExplorerProps> = ({
       window.getSelection?.()?.removeAllRanges();
       onToggleSelect(item, e.shiftKey);
       return;
+    }
+    // 「原地展开」的起点。目录不弹窗 ⇒ 不留来源（否则下一次打开会捡到旧矩形）；
+    // 有缩略图就按**缩略图自己的盒子**起飞 —— 这里要的是 getBoundingClientRect（含 hover 的 1.03 缩放），
+    // 因为要的就是“屏幕上那几像素此刻在哪”，不是布局盒。
+    if (isDirectory(item)) {
+      rememberOpenOrigin(null);
+    } else {
+      const container = e.currentTarget as HTMLElement;
+      const thumb = container.querySelector('img');
+      const box = (thumb ?? container).getBoundingClientRect();
+      rememberOpenOrigin({
+        x: box.left,
+        y: box.top,
+        w: box.width,
+        h: box.height,
+        image: thumb?.getAttribute('src') ?? undefined,
+      });
     }
     onItemClick(item);
   };
