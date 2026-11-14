@@ -69,6 +69,20 @@ export function resolveBrandConfig(): LumeBrandConfig {
 /**
  * Decodes the Base64-encoded UTF-8 JSON payload (`__INDEX_DATA__`) injected by Dufs into `index.html`.
  */
+/**
+ * 给整份列表盖一条「我在哪个目录」⇒ 之后所有 URL（复制直链 / 下载 / 预览）都由它拼，不跟着当前页跑。
+ * ⚠ **两条数据源都必须盖**：上一版只在 `fetchDirectoryJson`（SPA 换目录）里盖章，而整页加载的首屏数据来自
+ * dufs 注入的 `__INDEX_DATA__` ⇒ 在音乐文件夹里直接刷新页面、播放后切到别的目录，
+ * 手里那条 item 没 originBase ⇒ 回落到当前页，复制出来就成了 `/share/<文件名>`（11-15 用户报）。
+ */
+function withOriginBase(data: DufsIndexData): DufsIndexData {
+  const base = joinUrlPath(data.uri_prefix ?? '', data.href);
+  return {
+    ...data,
+    paths: (data.paths ?? []).map((p) => ({ ...p, originBase: base })),
+  };
+}
+
 export function decodeDufsIndexData(rawBase64?: string): DufsIndexData | null {
   if (!rawBase64 || rawBase64 === '__INDEX' + '_DATA__' || rawBase64.includes('__INDEX_DATA__')) {
     return null;
@@ -77,10 +91,10 @@ export function decodeDufsIndexData(rawBase64?: string): DufsIndexData | null {
     const binary = atob(rawBase64);
     const bytes = Uint8Array.from(binary, (c) => c.charCodeAt(0));
     const jsonStr = new TextDecoder('utf-8').decode(bytes);
-    return JSON.parse(jsonStr) as DufsIndexData;
+    return withOriginBase(JSON.parse(jsonStr) as DufsIndexData);
   } catch {
     try {
-      return JSON.parse(decodeURIComponent(escape(atob(rawBase64)))) as DufsIndexData;
+      return withOriginBase(JSON.parse(decodeURIComponent(escape(atob(rawBase64)))) as DufsIndexData);
     } catch {
       return null;
     }
@@ -148,12 +162,7 @@ export async function fetchDirectoryJson(dirUrl: string): Promise<DufsIndexData>
     throw new Error(`HTTP ${res.status}: ${res.statusText}`);
   }
   const data = (await res.json()) as DufsIndexData;
-  // 盖一条「我在哪个目录」⇒ 之后所有 URL 由它拼，不再跟着当前页跑（跨目录播放/预览时当前页会变）
-  const base = joinUrlPath(data.uri_prefix ?? '', data.href);
-  return {
-    ...data,
-    paths: (data.paths ?? []).map((p) => ({ ...p, originBase: base })),
-  };
+  return withOriginBase(data);
 }
 
 /** Extension API endpoint for session verification, storage metrics, and capability discovery. */
