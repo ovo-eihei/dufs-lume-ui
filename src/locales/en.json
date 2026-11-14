@@ -105,6 +105,8 @@
     "zoomOut": "Zoom out (-)",
     "fit": "Fit to window (0)",
     "actual": "Actual pixels 1:1 (1)",
+    "fullscreen": "Fullscreen",
+    "exitFullscreen": "Exit fullscreen (Esc)",
     "loading": "Loading image...",
     "failed": "Failed to load image",
     "failedHint": "The file may have moved or been renamed, or this directory requires sign-in.",

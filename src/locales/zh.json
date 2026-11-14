@@ -105,6 +105,8 @@
     "zoomOut": "缩小 (-)",
     "fit": "适应窗口 (0)",
     "actual": "原始像素 1:1 (1)",
+    "fullscreen": "全屏查看",
+    "exitFullscreen": "退出全屏 (Esc)",
     "loading": "图片加载中...",
     "failed": "图片加载失败",
     "failedHint": "可能是文件已移动或改名，也可能这一目录需要登录。",
