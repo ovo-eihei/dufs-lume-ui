@@ -70,15 +70,13 @@ serve_info() {
   # 成 3.16728e+10 这种科学计数法，既不是合法 JSON 整数又丢精度（容器实测）。
   set -- $(df -P -k "$ROOT" 2>/dev/null | tail -n 1)
   FREE=$(( ${4:-0} * 1024 ))
-  NOW=$(date -Iseconds 2>/dev/null || date +"%Y-%m-%dT%H:%M:%S%z")
   CAP=$(thumbs_cap)
   # du -sk 每请求跑一次（实测数据根 0.002 s / 2 万文件 0.054 s）⇒ 默认输出，不做开关。
   KB=$(du -sk "$ROOT" 2>/dev/null | cut -f1)             # busybox du 没有 -b ⇒ 用 -sk 再乘 1024
   DATA=$(( ${KB:-0} * 1024 ))
-  # 不输出 path：数据根的绝对路径对前端没有任何用处（它只喂过磁盘小部件的悬浮提示），
-  # 却把宿主机/容器的文件系统布局告诉浏览器 ⇒ 少说一个字段更省事。
-  BODY=$(printf '{"generated_at":"%s","free_bytes":%s,"data_bytes":%s,"thumbs":%s}' \
-    "$NOW" "$FREE" "$DATA" "$CAP")
+  # 不输出 path / generated_at：数据根绝对路径与生成时间戳对前端都没有用处（path 只喂过磁盘小部件的
+  # 悬浮提示，generated_at 从来没被渲染过），而前者还会把宿主机/容器的文件系统布局告诉浏览器。
+  BODY=$(printf '{"free_bytes":%s,"data_bytes":%s,"thumbs":%s}' "$FREE" "$DATA" "$CAP")
   respond 200 OK application/json '' "$BODY"
 }
 
