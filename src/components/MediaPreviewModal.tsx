@@ -1,4 +1,4 @@
-import React, { useEffect, useState, useMemo, useRef } from 'react';
+import React, { useCallback, useEffect, useLayoutEffect, useState, useMemo, useRef } from 'react';
 import { useTranslation } from 'react-i18next';
 import {
   X,
@@ -25,9 +25,14 @@ import { FileIconBadge } from './FileIconBadge';
 import NameText from './NameText';
 import { createDemoSvgDataUri, createDemoWavDataUri } from '../utils/demoAssets';
 import { useModalTransition } from '../utils/useModalTransition';
+import { takeOpenOrigin } from '../utils/openOrigin';
 import { useLongPressAction } from '../utils/useLongPressAction';
 import { AudioPlayerCard, AudioBridge } from './ModalsAndPanels';
 import { ImageViewer } from './ImageViewer';
+
+/** 「原地展开」的时长与缓动：与全站动效同族，比 modalIn 略长 —— 位移比缩放显眼，太快看不出来自哪里 */
+const FLY_MS = 240;
+const FLY_EASE = 'cubic-bezier(0.16, 1, 0.3, 1)';
 
 const SandboxHintBar: React.FC<{ onDisable: () => void }> = ({ onDisable }) => {
   const { t } = useTranslation();
@@ -382,6 +387,82 @@ export const MediaPreviewModal: React.FC<MediaPreviewModalProps> = ({
   const activeUrl = item ? fileUrl : cachedUrl;
   const category = activeItem ? getPreviewCategory(activeItem.name) : 'unsupported';
 
+  /* ======================= 「原地展开」（FLIP） ======================= */
+  const panelRef = useRef<HTMLDivElement>(null);
+  /** none = 没参与（走原来的 modalIn 淡入）；flying = 正在飞；done = 落位，不再补跑 modalIn */
+  const [flyMode, setFlyMode] = useState<'none' | 'flying' | 'done'>('none');
+  const flyRafRef = useRef<number | null>(null);
+  const flyTimerRef = useRef<number | null>(null);
+  const wasOpenRef = useRef(false);
+
+  const endFly = useCallback(() => {
+    setFlyMode('done');
+    const panel = panelRef.current;
+    if (!panel) return;
+    panel.style.transition = '';
+    panel.style.transform = '';
+    panel.style.transformOrigin = '';
+    panel.style.backgroundImage = '';
+    panel.style.backgroundSize = '';
+    panel.style.backgroundPosition = '';
+  }, []);
+
+  /**
+   * 把面板先写成「点击那一格的矩形」，下一帧放开到它自己的位置。
+   *
+   * 途中内容整体压掉（非等比缩放会把文字与图拉糊），底图换成那张缩略图 ⇒ 看到的就是
+   * 那张图从原地放大。取不到来源（键盘巡航、翻页、迷你播放器回填）就直接返回，动画照旧。
+   */
+  const startFly = useCallback(() => {
+    const origin = takeOpenOrigin();
+    const panel = panelRef.current;
+    if (!origin || !panel) return;
+    if (window.matchMedia?.('(prefers-reduced-motion: reduce)').matches) return;
+    const to = panel.getBoundingClientRect();
+    if (!to.width || !to.height || !origin.w || !origin.h) return;
+
+    setFlyMode('flying');
+    panel.style.transition = 'none';
+    panel.style.transformOrigin = 'top left';
+    panel.style.transform = `translate(${origin.x - to.left}px, ${origin.y - to.top}px) scale(${
+      origin.w / to.width
+    }, ${origin.h / to.height})`;
+    if (origin.image) {
+      panel.style.backgroundImage = `url("${origin.image}")`;
+      panel.style.backgroundSize = 'cover';
+      panel.style.backgroundPosition = 'center';
+    }
+
+    flyRafRef.current = requestAnimationFrame(() => {
+      flyRafRef.current = null;
+      panel.style.transition = `transform ${FLY_MS}ms ${FLY_EASE}`;
+      panel.style.transform = 'translate(0px, 0px) scale(1, 1)';
+      flyTimerRef.current = window.setTimeout(() => {
+        flyTimerRef.current = null;
+        endFly();
+      }, FLY_MS + 40);
+    });
+  }, [endFly]);
+
+  // 只在「关上 → 打开」那一条边上起飞：弹窗实例在 ←/→ 翻页时不重挂，所以不能依赖 [] 只跑一次
+  useLayoutEffect(() => {
+    const open = rendered && !isClosing && !!item;
+    if (open && !wasOpenRef.current) startFly();
+    // 关上的那一帧把 flyMode 复位：不然后一次用键盘打开时（拿不到来源）flyMode 还停在 done，
+    // 面板就既没有展开动画也没有 modalIn 淡入。
+    if (!open && wasOpenRef.current) setFlyMode('none');
+    wasOpenRef.current = open;
+  });
+
+  // 落位前就被关掉 / 直接卸载 ⇒ 收起待处理的帧与定时器（内联样式随面板一起消失，不用清）
+  useEffect(
+    () => () => {
+      if (flyRafRef.current !== null) cancelAnimationFrame(flyRafRef.current);
+      if (flyTimerRef.current !== null) window.clearTimeout(flyTimerRef.current);
+    },
+    []
+  );
+
   useEffect(() => {
     if (!activeItem) return;
     const cat = getPreviewCategory(activeItem.name);
@@ -508,8 +589,10 @@ export const MediaPreviewModal: React.FC<MediaPreviewModalProps> = ({
       onClick={handleCloseOrMinimize}
     >
       <div
-        className={`relative w-full max-w-5xl h-[92dvh] max-h-[92vh] sm:h-[90dvh] sm:max-h-[90vh] flex flex-col rounded-2xl bg-white dark:bg-slate-900 border border-slate-200 dark:border-slate-800 shadow-2xl overflow-hidden ${
-          isClosing ? 'animate-modalOut' : 'animate-modalIn'
+        ref={panelRef}
+        data-fly={flyMode === 'flying' ? '1' : undefined}
+        className={`lume-fly-panel relative w-full max-w-5xl h-[92dvh] max-h-[92vh] sm:h-[90dvh] sm:max-h-[90vh] flex flex-col rounded-2xl bg-white dark:bg-slate-900 border border-slate-200 dark:border-slate-800 shadow-2xl overflow-hidden ${
+          isClosing ? 'animate-modalOut' : flyMode === 'none' ? 'animate-modalIn' : ''
         }`}
         onClick={(e) => e.stopPropagation()}
       >
