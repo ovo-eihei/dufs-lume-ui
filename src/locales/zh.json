@@ -100,6 +100,16 @@
     "minimizeToPlayer": "收起为后台迷你播放器",
     "autoPlayBlocked": "后台音乐正在播放，未自动播放本条；点播放按钮即可开始"
   },
+  "imageViewer": {
+    "zoomIn": "放大 (+)",
+    "zoomOut": "缩小 (-)",
+    "fit": "适应窗口 (0)",
+    "actual": "原始像素 1:1 (1)",
+    "loading": "图片加载中...",
+    "failed": "图片加载失败",
+    "failedHint": "可能是文件已移动或改名，也可能这一目录需要登录。",
+    "retry": "重试"
+  },
   "player": {
     "nowPlaying": "正在后台播放",
     "playing": "播放中",
