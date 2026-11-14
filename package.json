@@ -1,7 +1,7 @@
 {
   "name": "dufs-lume-ui",
   "private": false,
-  "version": "0.6.0",
+  "version": "0.7.0",
   "description": "A modern, minimalist, and luminous standalone frontend theme for Dufs file server (--assets) with Caddy + TinyAuth integration.",
   "type": "module",
   "license": "MIT",
