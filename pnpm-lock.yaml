@@ -26,6 +26,9 @@ importers:
       react-i18next:
         specifier: ^18.0.1
         version: 18.0.1(@types/react@19.3.0)(i18next@27.1.1(typescript@7.0.2))(react@19.3.1)(typescript@7.0.2)
+      react-zoom-pan-pinch:
+        specifier: 4.2.0
+        version: 4.2.0(react-dom@19.3.1(react@19.3.1))(react@19.3.1)
     devDependencies:
       '@tailwindcss/vite':
         specifier: ^4.3.5
@@ -598,6 +601,13 @@ packages:
       typescript:
         optional: true
 
+  react-zoom-pan-pinch@4.2.0:
+    resolution: {integrity: sha512-QSw1dvr6QGv5zHCUY7SEIY7EWRDbx1y6plylrWf2Nko9KOMW1MEoPC6oJ+Y/qOSeQjhvbkMV0m5bFF7pBxCH4A==}
+    engines: {node: '>=8', npm: '>=5'}
+    peerDependencies:
+      react: '*'
+      react-dom: '*'
+
   react@19.3.1:
     resolution: {integrity: sha512-QNhWdt7nrgVWWQG58QuGsAR3jv3Hbe4mb4vz7w2csnHavciZJgda1CPNaldF6eVxv90ud3jUXpKlHL69gO38yw==}
     engines: {node: '>=0.10.0'}
@@ -1034,6 +1044,11 @@ snapshots:
     optionalDependencies:
       '@types/react': 19.3.0
       typescript: 7.0.2
+
+  react-zoom-pan-pinch@4.2.0(react-dom@19.3.1(react@19.3.1))(react@19.3.1):
+    dependencies:
+      react: 19.3.1
+      react-dom: 19.3.1(react@19.3.1)
 
   react@19.3.1: {}
 
