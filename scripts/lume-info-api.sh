@@ -178,7 +178,7 @@ serve_thumb() { # $1=查询串（不含前导 ?，也不含结尾的 " HTTP/1.1"
     return
   fi
 
-  # root=share ⇒ 只允许公开区子树（Caddy 在匿名侧的 handle 里硬塞这个参数，见 docs §6）。
+  # root=share ⇒ 只允许公开区子树（Caddy 在匿名侧的 handle 里硬塞这个参数，见 docs §4 可选 (4)）。
   # 放在"文件是否存在"之前：未登录者连"这个门禁区路径存在吗"都问不出来。
   case "$ANON_PREFIX" in
     /*) ;;
