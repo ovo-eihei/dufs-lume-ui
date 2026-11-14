@@ -694,6 +694,11 @@ export const MediaPreviewModal: React.FC<MediaPreviewModalProps> = ({
                   duration: 0,
                   onTogglePlay: () => {},
                   onSeek: () => {},
+                  // 没有接线时按钮照样在，只是按不动（保持控件行尺寸稳定）
+                  onPrev: () => {},
+                  onNext: () => {},
+                  hasPrev: false,
+                  hasNext: false,
                 }
               }
             />

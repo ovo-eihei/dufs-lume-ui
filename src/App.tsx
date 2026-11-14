@@ -1335,14 +1335,35 @@ export default function App() {
     return audioFiles.findIndex((i) => i.name === activeAudioItem.name);
   }, [activeAudioItem, audioFiles]);
 
+  /** 能不能换曲。按钮常驻只置灰，不做条件渲染 ⇒ 控件行不会因缺一个按钮而跳动 */
+  const hasPrevAudio = currentAudioIndex > 0;
+  const hasNextAudio = currentAudioIndex >= 0 && currentAudioIndex < audioFiles.length - 1;
+
+  /** 迷你播放器：换曲只动引擎（弹窗没开，没有「当前文件」要跟着改） */
   const handlePrevAudio = () => {
-    if (currentAudioIndex > 0) loadAudioTrack(audioFiles[currentAudioIndex - 1], true);
+    if (hasPrevAudio) loadAudioTrack(audioFiles[currentAudioIndex - 1], true);
   };
 
   const handleNextAudio = () => {
-    if (currentAudioIndex >= 0 && currentAudioIndex < audioFiles.length - 1) {
-      loadAudioTrack(audioFiles[currentAudioIndex + 1], true);
-    }
+    if (hasNextAudio) loadAudioTrack(audioFiles[currentAudioIndex + 1], true);
+  };
+
+  /**
+   * 详情弹窗里的上一首/下一首：引擎与 previewItem 必须一起换。
+   * 只换引擎的话面板标题会停在上一首（trackName 读的是 previewItem.name），看起来就像按钮没反应。
+   */
+  const handleModalPrevAudio = () => {
+    if (!hasPrevAudio) return;
+    const item = audioFiles[currentAudioIndex - 1];
+    loadAudioTrack(item, true);
+    setPreviewItem(item);
+  };
+
+  const handleModalNextAudio = () => {
+    if (!hasNextAudio) return;
+    const item = audioFiles[currentAudioIndex + 1];
+    loadAudioTrack(item, true);
+    setPreviewItem(item);
   };
 
   /**
@@ -1365,11 +1386,10 @@ export default function App() {
           setAudioCurrentTime(time);
         }
       },
-      onPrev: currentAudioIndex > 0 ? handlePrevAudio : undefined,
-      onNext:
-        currentAudioIndex >= 0 && currentAudioIndex < audioFiles.length - 1
-          ? handleNextAudio
-          : undefined,
+      onPrev: handleModalPrevAudio,
+      onNext: handleModalNextAudio,
+      hasPrev: hasPrevAudio,
+      hasNext: hasNextAudio,
     };
   }, [
     previewItem,
@@ -1379,8 +1399,10 @@ export default function App() {
     toggleGlobalAudioPlay,
     currentAudioIndex,
     audioFiles,
-    handlePrevAudio,
-    handleNextAudio,
+    hasPrevAudio,
+    hasNextAudio,
+    handleModalPrevAudio,
+    handleModalNextAudio,
   ]);
 
   /* ======================= Auth Redirect & Session Check ======================= */
@@ -1753,8 +1775,10 @@ export default function App() {
           }
         }}
         onTogglePlay={toggleGlobalAudioPlay}
-        onPrev={currentAudioIndex > 0 ? handlePrevAudio : undefined}
-        onNext={currentAudioIndex >= 0 && currentAudioIndex < audioFiles.length - 1 ? handleNextAudio : undefined}
+        onPrev={handlePrevAudio}
+        onNext={handleNextAudio}
+        hasPrev={hasPrevAudio}
+        hasNext={hasNextAudio}
         onExpand={() => {
           // 同一个引擎，展开只是换一套控件：不暂停、不重载、位置不动
           if (activeAudioItem) setPreviewItem(activeAudioItem);

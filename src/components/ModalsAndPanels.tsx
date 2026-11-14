@@ -571,8 +571,10 @@ interface MiniAudioPlayerProps {
   duration: number;
   onSeek: (time: number) => void;
   onTogglePlay: () => void;
-  onPrev?: () => void;
-  onNext?: () => void;
+  onPrev: () => void;
+  onNext: () => void;
+  hasPrev: boolean;
+  hasNext: boolean;
   onExpand: () => void;
   onClose: () => void;
 }
@@ -586,6 +588,8 @@ export const MiniAudioPlayer: React.FC<MiniAudioPlayerProps> = ({
   onTogglePlay,
   onPrev,
   onNext,
+  hasPrev,
+  hasNext,
   onExpand,
   onClose,
 }) => {
@@ -615,16 +619,17 @@ export const MiniAudioPlayer: React.FC<MiniAudioPlayerProps> = ({
         </div>
 
         <div className="flex items-center gap-0.5 shrink-0">
-          {onPrev && (
-            <button
-              type="button"
-              onClick={onPrev}
-              title={t('player.prevTrack')}
-              className="p-1.5 rounded-lg text-slate-500 hover:text-slate-800 dark:text-slate-400 dark:hover:text-slate-200 hover:bg-slate-100 dark:hover:bg-slate-800 active:scale-90 transition-all"
-            >
-              <SkipBack className="w-3.5 h-3.5" />
-            </button>
-          )}
+          {/* 四个按钮常驻，到头时只置灰 —— 条件渲染会让整行左右跳 */}
+          <button
+            type="button"
+            disabled={!hasPrev}
+            onClick={onPrev}
+            title={t('player.prevTrack')}
+            aria-label={t('player.prevTrack')}
+            className="p-1.5 rounded-lg text-slate-500 hover:text-slate-800 dark:text-slate-400 dark:hover:text-slate-200 hover:bg-slate-100 dark:hover:bg-slate-800 active:scale-90 disabled:opacity-35 disabled:pointer-events-none transition-all"
+          >
+            <SkipBack className="w-3.5 h-3.5" />
+          </button>
           <button
             type="button"
             onClick={onTogglePlay}
@@ -633,16 +638,16 @@ export const MiniAudioPlayer: React.FC<MiniAudioPlayerProps> = ({
           >
             {isPlaying ? <Pause className="w-3.5 h-3.5" /> : <Play className="w-3.5 h-3.5" />}
           </button>
-          {onNext && (
-            <button
-              type="button"
-              onClick={onNext}
-              title={t('player.nextTrack')}
-              className="p-1.5 rounded-lg text-slate-500 hover:text-slate-800 dark:text-slate-400 dark:hover:text-slate-200 hover:bg-slate-100 dark:hover:bg-slate-800 active:scale-90 transition-all"
-            >
-              <SkipForward className="w-3.5 h-3.5" />
-            </button>
-          )}
+          <button
+            type="button"
+            disabled={!hasNext}
+            onClick={onNext}
+            title={t('player.nextTrack')}
+            aria-label={t('player.nextTrack')}
+            className="p-1.5 rounded-lg text-slate-500 hover:text-slate-800 dark:text-slate-400 dark:hover:text-slate-200 hover:bg-slate-100 dark:hover:bg-slate-800 active:scale-90 disabled:opacity-35 disabled:pointer-events-none transition-all"
+          >
+            <SkipForward className="w-3.5 h-3.5" />
+          </button>
           <button
             type="button"
             onClick={onExpand}
@@ -794,8 +799,10 @@ export interface AudioBridge {
   duration: number;
   onTogglePlay: () => void;
   onSeek: (time: number) => void;
-  onPrev?: () => void;
-  onNext?: () => void;
+  onPrev: () => void;
+  onNext: () => void;
+  hasPrev: boolean;
+  hasNext: boolean;
 }
 
 export const AudioPlayerCard: React.FC<{ bridge: AudioBridge }> = ({ bridge }) => {
@@ -832,17 +839,17 @@ export const AudioPlayerCard: React.FC<{ bridge: AudioBridge }> = ({ bridge }) =
       </div>
 
       <div className="flex items-center gap-3">
-        {bridge.onPrev && (
-          <button
-            type="button"
-            onClick={bridge.onPrev}
-            title={t('player.prevTrack')}
-            aria-label={t('player.prevTrack')}
-            className="p-2.5 rounded-xl text-slate-500 hover:text-slate-800 dark:text-slate-400 dark:hover:text-slate-200 hover:bg-slate-100 dark:hover:bg-slate-800 active:scale-90 transition-all"
-          >
-            <SkipBack className="w-5 h-5" />
-          </button>
-        )}
+        {/* 到头时只置灰不隐藏：少一个按钮会让播放键在行里左右跳 */}
+        <button
+          type="button"
+          disabled={!bridge.hasPrev}
+          onClick={bridge.onPrev}
+          title={t('player.prevTrack')}
+          aria-label={t('player.prevTrack')}
+          className="p-2.5 rounded-xl text-slate-500 hover:text-slate-800 dark:text-slate-400 dark:hover:text-slate-200 hover:bg-slate-100 dark:hover:bg-slate-800 active:scale-90 disabled:opacity-35 disabled:pointer-events-none transition-all"
+        >
+          <SkipBack className="w-5 h-5" />
+        </button>
         <button
           type="button"
           onClick={bridge.onTogglePlay}
@@ -852,17 +859,16 @@ export const AudioPlayerCard: React.FC<{ bridge: AudioBridge }> = ({ bridge }) =
         >
           {bridge.isPlaying ? <Pause className="w-6 h-6" /> : <Play className="w-6 h-6" />}
         </button>
-        {bridge.onNext && (
-          <button
-            type="button"
-            onClick={bridge.onNext}
-            title={t('player.nextTrack')}
-            aria-label={t('player.nextTrack')}
-            className="p-2.5 rounded-xl text-slate-500 hover:text-slate-800 dark:text-slate-400 dark:hover:text-slate-200 hover:bg-slate-100 dark:hover:bg-slate-800 active:scale-90 transition-all"
-          >
-            <SkipForward className="w-5 h-5" />
-          </button>
-        )}
+        <button
+          type="button"
+          disabled={!bridge.hasNext}
+          onClick={bridge.onNext}
+          title={t('player.nextTrack')}
+          aria-label={t('player.nextTrack')}
+          className="p-2.5 rounded-xl text-slate-500 hover:text-slate-800 dark:text-slate-400 dark:hover:text-slate-200 hover:bg-slate-100 dark:hover:bg-slate-800 active:scale-90 disabled:opacity-35 disabled:pointer-events-none transition-all"
+        >
+          <SkipForward className="w-5 h-5" />
+        </button>
       </div>
     </div>
   );
