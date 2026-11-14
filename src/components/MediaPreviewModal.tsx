@@ -27,6 +27,7 @@ import { createDemoSvgDataUri, createDemoWavDataUri } from '../utils/demoAssets'
 import { useModalTransition } from '../utils/useModalTransition';
 import { useLongPressAction } from '../utils/useLongPressAction';
 import { AudioPlayerCard, AudioBridge } from './ModalsAndPanels';
+import { ImageViewer } from './ImageViewer';
 
 const SandboxHintBar: React.FC<{ onDisable: () => void }> = ({ onDisable }) => {
   const { t } = useTranslation();
@@ -667,13 +668,7 @@ export const MediaPreviewModal: React.FC<MediaPreviewModalProps> = ({
               <p className="text-xs text-slate-400 mt-1">{loadError}</p>
             </div>
           ) : category === 'image' ? (
-            <div className="flex-1 min-h-0 flex items-center justify-center p-6 bg-slate-950/20 dark:bg-slate-950/50">
-              <img
-                src={resolvedMediaSrc}
-                alt={activeItem.name}
-                className="max-w-full max-h-full h-auto rounded-xl shadow-md object-contain animate-fadeIn"
-              />
-            </div>
+            <ImageViewer src={resolvedMediaSrc} alt={activeItem.name} />
           ) : category === 'video' ? (
             <div className="flex-1 min-h-0 flex items-center justify-center bg-black">
               <video
