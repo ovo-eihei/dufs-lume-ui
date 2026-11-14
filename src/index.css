@@ -1,6 +1,17 @@
-@tailwind base;
-@tailwind components;
-@tailwind utilities;
+/*
+ * Tailwind 4：入口改成 `@import`，不再用 `@tailwind base/components/utilities` 三行。
+ * ⚠ 本文件只能用 CSS 块注释（开闭那两个两字符序列），**没有** `//` 行注释；
+ *    写上去会被 LightningCSS 当非法声明，把整条 @import 'tailwindcss' 一起带倒
+ *    （实测 CssSyntaxError: Invalid declaration）。
+ */
+@import 'tailwindcss';
+
+/* v4 默认按 prefers-color-scheme 出 dark: —— 我们用的是 <html class="dark"> 切换，
+   所以显式把 dark 变体改回类名驱动。 */
+@custom-variant dark (&:where(.dark, .dark *));
+
+/* 自定义 keyframes/animation 仍在 tailwind.config.js 里（v4 用 @config 兼容 JS 配置）。 */
+@config "../tailwind.config.js";
 
 @layer base {
   body {

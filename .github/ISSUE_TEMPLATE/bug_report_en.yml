@@ -55,7 +55,7 @@ body:
       description: The URL and status code of the failing request from your browser devtools; when `/__lume__/*` is involved, also include the response of `/__lume__/info` (**redact the domain, tokens and any credentials first**)
       placeholder: |
         GET /__lume__/thumb?path=%2Fshare%2Fa.png&w=256 → 503
-        GET /__lume__/info → {"generated_at":"…","path":"/data","free_bytes":…,"thumbs":{"enabled":false}}
+        GET /__lume__/info → {"free_bytes":…,"data_bytes":…,"thumbs":{"enabled":false}}
   - type: checkboxes
     id: checks
     attributes:

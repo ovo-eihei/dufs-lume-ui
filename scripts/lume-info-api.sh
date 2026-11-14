@@ -45,8 +45,6 @@ respond_file() { # $1=ctype $2=file —— 二进制直发，缓存命中时不�
   cat "$2"
 }
 
-json_escape() { printf '%s' "$1" | sed 's/\\/\\\\/g; s/"/\\"/g'; }
-
 # ---------- 能力探测 ----------
 # 精简系统里常常一个图像工具都没有；缺工具时能力位报 false，前端自然降级（不是故障）
 # 装完 libvips-tools 之后这里才会自动亮起来 ⇒ 前端据此决定「服务器注册 ⇒ 用服务端预览」。
@@ -72,13 +70,13 @@ serve_info() {
   # 成 3.16728e+10 这种科学计数法，既不是合法 JSON 整数又丢精度（容器实测）。
   set -- $(df -P -k "$ROOT" 2>/dev/null | tail -n 1)
   FREE=$(( ${4:-0} * 1024 ))
-  NOW=$(date -Iseconds 2>/dev/null || date +"%Y-%m-%dT%H:%M:%S%z")
   CAP=$(thumbs_cap)
   # du -sk 每请求跑一次（实测数据根 0.002 s / 2 万文件 0.054 s）⇒ 默认输出，不做开关。
   KB=$(du -sk "$ROOT" 2>/dev/null | cut -f1)             # busybox du 没有 -b ⇒ 用 -sk 再乘 1024
   DATA=$(( ${KB:-0} * 1024 ))
-  BODY=$(printf '{"generated_at":"%s","path":"%s","free_bytes":%s,"data_bytes":%s,"thumbs":%s}' \
-    "$NOW" "$(json_escape "$ROOT")" "$FREE" "$DATA" "$CAP")
+  # 不输出 path / generated_at：数据根绝对路径与生成时间戳对前端都没有用处（path 只喂过磁盘小部件的
+  # 悬浮提示，generated_at 从来没被渲染过），而前者还会把宿主机/容器的文件系统布局告诉浏览器。
+  BODY=$(printf '{"free_bytes":%s,"data_bytes":%s,"thumbs":%s}' "$FREE" "$DATA" "$CAP")
   respond 200 OK application/json '' "$BODY"
 }
 
@@ -178,7 +176,7 @@ serve_thumb() { # $1=查询串（不含前导 ?，也不含结尾的 " HTTP/1.1"
     return
   fi
 
-  # root=share ⇒ 只允许公开区子树（Caddy 在匿名侧的 handle 里硬塞这个参数，见 docs §6）。
+  # root=share ⇒ 只允许公开区子树（Caddy 在匿名侧的 handle 里硬塞这个参数，见 docs §4 可选 (4)）。
   # 放在"文件是否存在"之前：未登录者连"这个门禁区路径存在吗"都问不出来。
   case "$ANON_PREFIX" in
     /*) ;;
