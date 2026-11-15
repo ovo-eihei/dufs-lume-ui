@@ -699,7 +699,7 @@ export const MediaPreviewModal: React.FC<MediaPreviewModalProps> = ({
             />
           ) : category === 'pdf' ? (
             <div className="flex-1 min-h-0 flex flex-col bg-white dark:bg-slate-900">
-              {isDemoMode ? (
+              {isDemoMode && !activeItem.demoMediaUrl ? (
                 <div className="h-full flex flex-col items-center justify-center p-8 text-center bg-slate-50/50 dark:bg-slate-950/50">
                   <FileIconBadge item={activeItem} size="lg" />
                   <h4 className="text-base font-semibold text-slate-900 dark:text-white mt-4">
@@ -714,7 +714,8 @@ export const MediaPreviewModal: React.FC<MediaPreviewModalProps> = ({
                   </p>
                 </div>
               ) : (
-                <iframe src={activeUrl} title={activeItem.name} className="w-full flex-1 min-h-0 border-0" />
+                // resolvedMediaSrc 优先取 demoMediaUrl ⇒ 演示版能把真 PDF 嵌进来（相对路径，Pages 子路径下也对）
+                <iframe src={resolvedMediaSrc} title={activeItem.name} className="w-full flex-1 min-h-0 border-0" />
               )}
             </div>
           ) : category === 'markdown' ? (
