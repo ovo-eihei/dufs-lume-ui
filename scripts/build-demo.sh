@@ -1,7 +1,7 @@
 #!/usr/bin/env bash
 # 构建 GitHub Pages 用的演示版，输出到 dist-demo/（**不碰 dist/**）。
 #
-# 为什么要单独一个目录：线上发布走的是 `rsync -a --delete dist/ <你的 --assets 目录>/`，
+# 为什么要单独一个目录：`dist/` 是要同步到 dufs `--assets` 目录的那一份，
 # 素材一旦混进 dist/，下次发版就把几 MB 照片推到生产资源目录里去了。
 #
 # 与生产构建的三处差别：
@@ -60,7 +60,7 @@ missing = [u for u in sorted(urls) if not (out / u).exists()]
 print(f"· 产物里引用 {len(urls)} 个素材路径，缺失 {len(missing)} 个")
 for m in missing:
     print(f"  ! 缺 {m}", file=sys.stderr)
-# index.html 的引用也要能落地（占位符已换成 ./）
+# index.html 的引用也要能解析（占位符已换成 ./）
 for ref in re.findall(r'(?:href|src)="\.\/([^"]+)"', html):
     ref = ref.split("?")[0]
     if not (out / ref).exists():

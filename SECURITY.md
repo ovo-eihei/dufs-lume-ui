@@ -14,7 +14,7 @@
 ## 本项目的安全边界（读报告前先知道）
 
 - **本项目不含任何鉴权**。谁能读、谁能写、谁能删，全部由 [Dufs](https://github.com/sigoden/dufs) 自身与它前面的反向代理（Caddy `forward_auth` 等）决定。把"未登录也能上传/删除"当成前端的漏洞报给我们，我们会转成文档说明而不是修复 —— 前端只是尽力根据探测结果隐藏入口，**它不是安全控制**。
-- **`docker/` 的默认档没有鉴权**，且 `LUME_BIND` 默认可能落在 `0.0.0.0`。这是 README 与 `.env.example` 明确写着的取舍，用于本机自测；把它当漏洞之前请先看那两段。
+- **`docker/` 的默认档没有鉴权**，且 `LUME_BIND` 默认可能落在 `0.0.0.0`。这是 README 与 `.env.example` 明确写着的取舍，用于本地自测；把它当漏洞之前请先看那两段。
 - **HTML 预览的沙箱**：默认在 `iframe sandbox` 里渲染，`allow-scripts` 与 `allow-same-origin` **不同时给**（否则沙箱形同虚设）。用户可以二次确认后关闭沙箱 —— 关闭之后是**用户自己的选择**，其后果不在本项目漏洞范围内。
 - **服务端扩展 API**：`scripts/lume-info-api.sh` 是唯一直接处理不可信输入并调用外部命令的部分（POSIX sh + `libvips`/`ImageMagick`）。它的路径判据与实测响应码见 [`docs/deployment-and-lume-api.md`](./docs/deployment-and-lume-api.md) §1(2) 与 §6。**绕过这些判据的路径穿越、命令注入、响应头注入是我们最关心的报告类型。**
 - **缩略图缓存**写在数据根之外（`THUMB_CACHE_DIR`），键含 mtime 与 size；如果你能构造出让一个用户的请求读到另一个用户的缓存图，那是高危。

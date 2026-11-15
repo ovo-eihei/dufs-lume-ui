@@ -73,7 +73,7 @@ export function resolveBrandConfig(): LumeBrandConfig {
  * 给整份列表盖一条「我在哪个目录」⇒ 之后所有 URL（复制直链 / 下载 / 预览）都由它拼，不跟着当前页跑。
  * ⚠ **两条数据源都必须盖**：上一版只在 `fetchDirectoryJson`（SPA 换目录）里盖章，而整页加载的首屏数据来自
  * dufs 注入的 `__INDEX_DATA__` ⇒ 在音乐文件夹里直接刷新页面、播放后切到别的目录，
- * 手里那条 item 没 originBase ⇒ 回落到当前页，复制出来就成了 `/share/<文件名>`（11-15 用户报）。
+ * 手里那条 item 没 originBase ⇒ 回落到当前页，复制出来就成了 `/share/<文件名>`。
  */
 function withOriginBase(data: DufsIndexData): DufsIndexData {
   const base = joinUrlPath(data.uri_prefix ?? '', data.href);
@@ -640,7 +640,7 @@ printf "HTTP/1.1 200 OK\\r\\nContent-Type: application/json; charset=utf-8\\r\\n
     },
   ],
   /**
-   * 真实演示素材（README 截图与 GitHub Pages 演示版用）：文件在 `demo/media/`，
+   * 真实演示素材（演示模式与 GitHub Pages 演示版用）：文件在 `demo/media/`，
    * 由 `scripts/build-demo.sh` 拷成 `dist/demo-media/`；`demoMediaUrl` 写**相对路径**（不带开头 `/`），
    * 这样 Pages 挂在子路径（`/<repo>/`）下也能解析。来源与许可逐条见 `demo/manifest.json`。
    */

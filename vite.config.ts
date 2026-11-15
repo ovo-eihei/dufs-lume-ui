@@ -10,7 +10,7 @@ import tailwindcss from '@tailwindcss/vite';
  * 为什么 js/css 用文件名带 hash、favicon 只能用查询串：品牌「同名覆盖」那一步
  * （把站点自己的 svg 覆盖到 assets/favicon.svg）依赖固定文件名，改成哈希名就会把那条流程打断。
  * 而 dufs 给 --assets 下所有文件 `cache-control: public, max-age=31536000, immutable`（实测），
- * 固定名换内容 ⇒ 浏览器一年内不会再要一次 ⇒ 换图标在线上永远"不生效"。
+ * 固定名换内容 ⇒ 浏览器一年内不会再要一次 ⇒ 换图标在生产环境永远"不生效"。
  */
 function faviconCacheKey(root: string): string {
   try {

@@ -1,6 +1,6 @@
 #!/usr/bin/env python3
 """
-下载演示素材到 demo/media/，供 README 截图与 GitHub Pages 演示版使用。
+下载演示素材到 demo/media/，供文档演示与 GitHub Pages 演示版使用。
 
 为什么从 Wikimedia Commons 取：这里的文件带机器可读的许可元数据，脚本能当场把
 「不可再分发」的挡掉（只留公有领域 / CC0 / CC-BY / CC-BY-SA / free use），并把来源页、
@@ -8,7 +8,7 @@
 Unsplash / Pexels 那类站点的许可不允许把原图再分发进仓库 ⇒ 不用。
 
 照片一律取 Commons 的 **1280 px 缩放版**（不是原图）：原图普遍 4–12 MB，仓库和 Pages
-都不该背这个体积；1280 px 的 JPEG 约 150–300 KB，截图里也够清楚。
+都不该背这个体积；1280 px 的 JPEG 约 150–300 KB，界面上也够清楚。
 
 用法：
     python3 demo/fetch.py                # 全量（已存在且非 --force 的跳过）
@@ -239,7 +239,7 @@ def main() -> int:
         if not size:
             continue
         if t.get("max_bytes") and size > t["max_bytes"]:
-            print(f"    ! 落地 {size:,} B 超过上限，删除")
+            print(f"    ! 实际 {size:,} B 超过上限，删除")
             dest.unlink()
             continue
         rel = str(dest.relative_to(media))

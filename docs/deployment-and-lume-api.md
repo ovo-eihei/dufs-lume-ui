@@ -191,7 +191,7 @@ Caddy 没有"未登录"这个匹配条件（登录态只有 tinyauth 知道）�
 ## 5. 部署与运维注意事项
 
 1. **资源前缀不是 `/assets/`**：Dufs 把 `--assets` 目录挂在 `/__dufs_v<版本>__/` 下（`/assets/` 直接 404），升级 Dufs 时版本号前缀会自动变化。因此源码中只使用 `__ASSETS_PREFIX__` 占位符，**绝不硬编码版本前缀**；Caddyfile 中使用 `not path /__dufs_v*` 通配豁免。
-2. **更新前端产物后必须重启 Dufs**：Dufs 的 `Server::new()` 在启动时一次性执行 `read_to_string(assets/index.html)` 缓存在内存中（`src/server.rs:93`），而 JS/CSS 是每次请求直读磁盘。若只覆盖 `dist/*` 而不重启 Dufs，线上 HTML 仍会引用上一版的 hashed JS/CSS 文件名。
+2. **更新前端产物后必须重启 Dufs**：Dufs 的 `Server::new()` 在启动时一次性执行 `read_to_string(assets/index.html)` 缓存在内存中（`src/server.rs:93`），而 JS/CSS 是每次请求直读磁盘。若只覆盖 `dist/*` 而不重启 Dufs，生产环境的 HTML 仍会引用上一版的 hashed JS/CSS 文件名。
 3. **产物文件名必须带 Content Hash**：`/__dufs_v<版本>__/` 下的文件被 Dufs 标记为 `cache-control: public, max-age=31536000, immutable`，而 `index.html` 本身是 `no-cache`。本仓库构建配置固定输出 `lume-app.[hash].js` / `lume-[name].[hash][extname]`，发布时请使用 `rsync -a --delete dist/ /path/to/assets/` 整目录替换，避免旧 hash 文件堆积。
 4. **用 `curl` 验证换皮必须带浏览器请求头**：Dufs 按 `Accept` 请求头分流——`Accept: */*`（`curl` 默认值）返回内置极简页，只有携带 `Accept: text/html,...` 与 `Mozilla/5.0` User-Agent 时才会返回自定义主题的 `index.html`。
 5. **没有图像工具链**（`convert` / `magick` / `ffmpeg` / `vipsthumbnail` / `cwebp` 全部不存在）⇒ `/__lume__/thumb` 会返回 **503**、`info` 的 `thumbs` 会是 `false`。装 `libvips-tools` 后**无需改脚本或配置**，能力位自动亮起。
