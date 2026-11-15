@@ -119,7 +119,7 @@ def main() -> int:
     tar_buf = io.BytesIO()
     with tarfile.open(fileobj=tar_buf, mode="w:gz") as tf:
         for name, body in (
-            ("backup/etc-caddy-Caddyfile", "eihei.top {\n  reverse_proxy 127.0.0.1:18095\n}\n"),
+            ("backup/etc-caddy-Caddyfile", "files.example.com {\n  reverse_proxy 127.0.0.1:5000\n}\n"),
             ("backup/dufs-unit.service", "[Unit]\nDescription=dufs file server\n"),
             ("backup/manifest.json", json.dumps({"files": 3, "generated": NOW}, indent=2)),
         ):
@@ -149,9 +149,9 @@ def main() -> int:
     made.append(("data/dufs-access.log", write("data/dufs-access.log", ("\n".join(log_lines) + "\n").encode())))
 
     cfg = {
-        "listen": "127.0.0.1:18095",
+        "listen": "127.0.0.1:5000",
         "path": "/var/lib/dufs",
-        "assets": "/opt/dufs/assets",
+        "assets": "/srv/dufs/assets",
         "allow": {"upload": True, "delete": True, "search": True, "archive": True},
         "auth": {"share": "anonymous"},
         "extensions": {"info": "127.0.0.1:8090", "thumbs": [128, 256, 512]},

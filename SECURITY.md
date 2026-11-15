@@ -4,8 +4,8 @@
 
 ## 报告一个漏洞
 
-请用仓库的 **私密漏洞报告**：[Security → Report a vulnerability](https://github.com/ovo-xxx/dufs-lume-ui/security/advisories/new)。
-非敏感的问题（文档、功能、普通缺陷）请开 [Issue](https://github.com/ovo-xxx/dufs-lume-ui/issues)。
+请用仓库的 **私密漏洞报告**：[Security → Report a vulnerability](https://github.com/ovo-eihei/dufs-lume-ui/security/advisories/new)。
+非敏感的问题（文档、功能、普通缺陷）请开 [Issue](https://github.com/ovo-eihei/dufs-lume-ui/issues)。
 
 请不要在公开的 Issue、PR 或讨论里贴出可利用的细节 —— 这类前端配了鉴权之后仍然要防的东西，公开描述等于给攻击者一份路线图。
 

@@ -787,12 +787,12 @@ Nov 13 06:01:55 dufs[412]: info req method=GET path=/share/photos/aurora-5.jpg s
     {
       name: 'lume-config.json',
       path_type: 'File',
-      size: 340,
+      size: 339,
       mtime: 1762380000000,
       demoContent: `{
-  "listen": "127.0.0.1:18095",
+  "listen": "127.0.0.1:5000",
   "path": "/var/lib/dufs",
-  "assets": "/opt/dufs/assets",
+  "assets": "/srv/dufs/assets",
   "allow": { "upload": true, "delete": true, "search": true, "archive": true },
   "auth": { "share": "anonymous" },
   "extensions": { "info": "127.0.0.1:8090", "thumbs": [128, 256, 512] }
@@ -809,7 +809,7 @@ Nov 13 06:01:55 dufs[412]: info req method=GET path=/share/photos/aurora-5.jpg s
     {
       name: 'site-backup.tar.gz',
       path_type: 'File',
-      size: 289,
+      size: 296,
       mtime: 1762378000000,
     },
   ],

@@ -1,7 +1,7 @@
 {
-  "listen": "127.0.0.1:18095",
+  "listen": "127.0.0.1:5000",
   "path": "/var/lib/dufs",
-  "assets": "/opt/dufs/assets",
+  "assets": "/srv/dufs/assets",
   "allow": {
     "upload": true,
     "delete": true,
