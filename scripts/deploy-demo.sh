@@ -2,8 +2,8 @@
 # 把 dist-demo/ 推到某个仓库的 gh-pages 分支（GitHub Pages 静态站点）。
 #
 # ⚠ 前置：目标仓库必须是 **public** 且开了 Pages（Pages 的源 = Deploy from a branch / gh-pages）。
-#   本项目的源仓库 ovo-eihei/dufs-lume-ui 是 private ⇒ 免费版开不了 Pages，所以默认建议单独建一个
-#   公开仓库只放演示站（例如 ovo-eihei/lume-demo），源码仍然留在私有仓库里。
+#   源仓库 ovo-eihei/dufs-lume-ui 只要本身是 public，就直接推它自己的 gh-pages；也可以另建一个
+#   只放演示站的公开仓库（例如 ovo-eihei/lume-demo）。
 #   脚本会当场查一次可见性，private 就直接拒绝，不会把东西推上去。
 #
 # 用法：

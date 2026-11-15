@@ -6,17 +6,17 @@
     "mime": "application/zip",
     "original": "",
     "page": "",
-    "sha256": "d6f27b6f2c73eb857a0b94298701f7e363d48008c86561e0d508398d3a931e7c",
+    "sha256": "b68964b124cabfcc67dd61773997ade91171034c416bc964fdcfb570ffc8b712",
     "source_title": "本地生成（demo/make-files.py）"
   },
   "archives/site-backup.tar.gz": {
     "author": "dufs-lume-ui",
-    "bytes": 289,
+    "bytes": 296,
     "license": "MIT (本仓库生成)",
     "mime": "application/gzip",
     "original": "",
     "page": "",
-    "sha256": "940c02a8d487910d70227ede4f9dee1474a46a6c46d8720b8234a6cd55918e45",
+    "sha256": "5bf123d4edb90dc0768da1b6cf508419db3a72bf616ecb1ae6592a08a195e310",
     "source_title": "本地生成（demo/make-files.py）"
   },
   "audio/orchestra-1910.ogg": {
@@ -61,12 +61,12 @@
   },
   "data/lume-config.json": {
     "author": "dufs-lume-ui",
-    "bytes": 340,
+    "bytes": 339,
     "license": "MIT (本仓库生成)",
     "mime": "application/json",
     "original": "",
     "page": "",
-    "sha256": "52dc29a199de96668de70d48d5ff9c9e66a4697290674dcf168ced250ca5d33c",
+    "sha256": "79d2c5c678685bc1687e99265d91f3da2a94f517d3b28c12c42d98a8ef2ff643",
     "source_title": "本地生成（demo/make-files.py）"
   },
   "docs/dufs-deployment-guide.pdf": {
