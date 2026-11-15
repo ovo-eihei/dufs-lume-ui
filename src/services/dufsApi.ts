@@ -465,19 +465,44 @@ export async function deleteFileOrDirectory(
 export const DEMO_DIRECTORY_TREE: Record<string, DufsPathItem[]> = {
   '/': [
     {
-      name: 'architecture-docs',
-      path_type: 'Dir',
-      mtime: 1762420800000,
-    },
-    {
-      name: 'media-showcase',
+      name: 'photos',
       path_type: 'Dir',
       mtime: 1762395000000,
     },
     {
-      name: 'releases',
+      name: 'video',
+      path_type: 'Dir',
+      mtime: 1762391400000,
+    },
+    {
+      name: 'audio',
+      path_type: 'Dir',
+      mtime: 1762388000000,
+    },
+    {
+      name: 'docs',
+      path_type: 'Dir',
+      mtime: 1762420800000,
+    },
+    {
+      name: 'data',
+      path_type: 'Dir',
+      mtime: 1762384000000,
+    },
+    {
+      name: 'archives',
       path_type: 'Dir',
       mtime: 1762280000000,
+    },
+    {
+      name: 'architecture-docs',
+      path_type: 'Dir',
+      mtime: 1762410000000,
+    },
+    {
+      name: 'releases',
+      path_type: 'Dir',
+      mtime: 1762270000000,
     },
     {
       name: 'README.md',
@@ -583,30 +608,6 @@ files.example.com {
 }
 `,
     },
-    {
-      name: 'lume-wallpaper.svg',
-      path_type: 'File',
-      size: 28490,
-      mtime: 1762350000000,
-    },
-    {
-      name: 'synth-ambient-demo.wav',
-      path_type: 'File',
-      size: 384512,
-      mtime: 1762310000000,
-    },
-    {
-      name: 'lofi-chime-loop.wav',
-      path_type: 'File',
-      size: 512000,
-      mtime: 1762305000000,
-    },
-    {
-      name: 'dufs-deployment-guide.pdf',
-      path_type: 'File',
-      size: 1258291,
-      mtime: 1762210000000,
-    },
   ],
   '/architecture-docs/': [
     {
@@ -638,32 +639,178 @@ printf "HTTP/1.1 200 OK\\r\\nContent-Type: application/json; charset=utf-8\\r\\n
 `,
     },
   ],
-  '/media-showcase/': [
+  /**
+   * 真实演示素材（演示模式与 GitHub Pages 演示版用）：文件在 `demo/media/`，
+   * 由 `scripts/build-demo.sh` 拷成 `dist/demo-media/`；`demoMediaUrl` 写**相对路径**（不带开头 `/`），
+   * 这样 Pages 挂在子路径（`/<repo>/`）下也能解析。来源与许可逐条见 `demo/manifest.json`。
+   */
+  '/photos/': [
     {
-      name: 'aurora-poster.svg',
+      name: 'aurora-norway.jpg',
       path_type: 'File',
-      size: 45120,
+      size: 245465,
       mtime: 1762395000000,
+      demoMediaUrl: 'demo-media/photos/aurora-norway.jpg',
     },
     {
-      name: 'lofi-chime-loop.wav',
+      name: 'tokyo-night.jpg',
       path_type: 'File',
-      size: 512000,
-      mtime: 1762380000000,
+      size: 355548,
+      mtime: 1762394100000,
+      demoMediaUrl: 'demo-media/photos/tokyo-night.jpg',
+    },
+    {
+      name: 'namib-dunes.jpg',
+      path_type: 'File',
+      size: 256535,
+      mtime: 1762393200000,
+      demoMediaUrl: 'demo-media/photos/namib-dunes.jpg',
+    },
+    {
+      name: 'mountain-lake.jpg',
+      path_type: 'File',
+      size: 208163,
+      mtime: 1762392300000,
+      demoMediaUrl: 'demo-media/photos/mountain-lake.jpg',
+    },
+    {
+      name: 'forest-fog.jpg',
+      path_type: 'File',
+      size: 172694,
+      mtime: 1762391400000,
+      demoMediaUrl: 'demo-media/photos/forest-fog.jpg',
+    },
+    {
+      name: 'macro-wing.jpg',
+      path_type: 'File',
+      size: 188916,
+      mtime: 1762390500000,
+      demoMediaUrl: 'demo-media/photos/macro-wing.jpg',
+    },
+    {
+      name: 'cat-eye.jpg',
+      path_type: 'File',
+      size: 213876,
+      mtime: 1762389600000,
+      demoMediaUrl: 'demo-media/photos/cat-eye.jpg',
+    },
+    {
+      name: 'spiral-staircase.jpg',
+      path_type: 'File',
+      size: 278829,
+      mtime: 1762388700000,
+      demoMediaUrl: 'demo-media/photos/spiral-staircase.jpg',
+    },
+  ],
+  '/video/': [
+    {
+      name: 'traffic-light.webm',
+      path_type: 'File',
+      size: 1485512,
+      mtime: 1762388000000,
+      demoMediaUrl: 'demo-media/video/traffic-light.webm',
+    },
+  ],
+  '/audio/': [
+    {
+      name: 'orchestra-1910.ogg',
+      path_type: 'File',
+      size: 1097472,
+      mtime: 1762387000000,
+      demoMediaUrl: 'demo-media/audio/orchestra-1910.ogg',
+    },
+    {
+      name: 'piano-phrase.wav',
+      path_type: 'File',
+      size: 339244,
+      mtime: 1762386000000,
+      demoMediaUrl: 'demo-media/audio/piano-phrase.wav',
+    },
+  ],
+  '/docs/': [
+    {
+      name: 'dufs-deployment-guide.pdf',
+      path_type: 'File',
+      size: 1480,
+      mtime: 1762384000000,
+      demoMediaUrl: 'demo-media/docs/dufs-deployment-guide.pdf',
     },
     {
       name: 'release-notes.txt',
       path_type: 'File',
       size: 980,
-      mtime: 1762360000000,
-      demoContent: `Dufs Lume UI v0.1.0 Release Notes
-=================================
+      mtime: 1762383000000,
+      demoContent: `Dufs Lume UI v0.7.2
+===================
+- Image viewer: the first painted frame is already fitted and centred
+- Reverted the v0.7.0 in-place expand animation
+- Grid and list views, keyboard navigation, client-side ZIP packaging
+- Extension endpoints: /__lume__/info and /__lume__/thumb
+
+Dufs Lume UI v0.1.0
+===================
 - Initial public release of Dufs Lume UI
 - Responsive List and Grid views with parent directory navigation in breadcrumbs
 - Real-time /__lume__/info and /__lume__/thumb extension APIs via POSIX shell script
-- Sandboxed HTML preview mode with explicit user consent before同源 execution
-- Client-side streaming ZIP packaging for multi-item selections
-- Runtime branding customization via Docker environment variables`,
+- Sandboxed HTML preview mode with explicit user consent before same-origin execution
+- Client-side streaming ZIP packaging for multi-item selections`,
+    },
+  ],
+  '/data/': [
+    {
+      name: 'access-sample.csv',
+      path_type: 'File',
+      size: 10851,
+      mtime: 1762382000000,
+      demoContent: `timestamp,endpoint,status,duration_ms,bytes
+2026-11-13T06:03:20,/share/,200,18,0
+2026-11-13T06:03:57,/__lume__/info,200,25,4099
+2026-11-13T06:04:34,/thumb,200,32,8198
+2026-11-13T06:05:11,/api/delete,304,39,12297
+2026-11-13T06:05:48,/share/,401,46,16396
+2026-11-13T06:06:25,/__lume__/info,502,53,20495
+2026-11-13T06:07:02,/thumb,200,60,24594
+2026-11-13T06:07:39,/share/,200,67,28693`,
+    },
+    {
+      name: 'dufs-access.log',
+      path_type: 'File',
+      size: 18732,
+      mtime: 1762381000000,
+      demoContent: `Nov 13 06:00:00 dufs[412]: info req method=GET path=/share/photos/aurora-0.jpg status=200 ip=198.51.100.0 dur=9ms
+Nov 13 06:00:23 dufs[412]: info req method=GET path=/share/photos/aurora-1.jpg status=200 ip=198.51.100.1 dur=12ms
+Nov 13 06:00:46 dufs[412]: warn req method=GET path=/share/photos/aurora-2.jpg status=304 ip=198.51.100.2 dur=15ms
+Nov 13 06:01:09 dufs[412]: info req method=GET path=/share/photos/aurora-3.jpg status=200 ip=198.51.100.3 dur=18ms
+Nov 13 06:01:32 dufs[412]: info req method=GET path=/share/photos/aurora-4.jpg status=200 ip=198.51.100.4 dur=21ms
+Nov 13 06:01:55 dufs[412]: info req method=GET path=/share/photos/aurora-5.jpg status=200 ip=198.51.100.5 dur=24ms`,
+    },
+    {
+      name: 'lume-config.json',
+      path_type: 'File',
+      size: 340,
+      mtime: 1762380000000,
+      demoContent: `{
+  "listen": "127.0.0.1:5000",
+  "path": "/var/lib/dufs",
+  "assets": "/srv/dufs/assets",
+  "allow": { "upload": true, "delete": true, "search": true, "archive": true },
+  "auth": { "share": "anonymous" },
+  "extensions": { "info": "127.0.0.1:8090", "thumbs": [128, 256, 512] }
+}`,
+    },
+  ],
+  '/archives/': [
+    {
+      name: 'lume-dist-sample.zip',
+      path_type: 'File',
+      size: 743,
+      mtime: 1762379000000,
+    },
+    {
+      name: 'site-backup.tar.gz',
+      path_type: 'File',
+      size: 289,
+      mtime: 1762378000000,
     },
   ],
   '/releases/': [

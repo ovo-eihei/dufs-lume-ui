@@ -202,6 +202,8 @@ export const FileExplorer: React.FC<FileExplorerProps> = ({
     width = GRID_THUMB_WIDTH,
   ): string | null => {
     if (isDirectory(item) || getPreviewCategory(item.name) !== 'image') return null;
+    // 演示模式：有真素材就用真图（靠它才能在网格里看到照片缩略图），没带素材的才退回生成的占位 SVG
+    if (item.demoMediaUrl) return item.demoMediaUrl;
     if (isDemoMode) return createDemoSvgDataUri(item.name);
     const clientUrl = joinUrlPath(uriPrefix, currentHref, item.name, false);
     const fallback = thumbFallbacks[item.name];
