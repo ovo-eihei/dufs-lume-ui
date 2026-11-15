@@ -39,8 +39,8 @@ Commons 每个文件都带机器可读的许可元数据，脚本能当场过滤
 | `data/dufs-access.log` | 18,732 | MIT（本仓库生成） | — | `make-files.py` |
 | `data/lume-config.json` | 340 | MIT（本仓库生成） | — | `make-files.py` |
 
-> CC BY / CC BY-SA 要求署名。只要展示了这些素材，就得加一句「演示素材来自 Wikimedia Commons，许可见 `demo/manifest.json`」即可覆盖；
-> 逐条署名（作者 + 许可）在 `manifest.json` 里都有。
+> CC BY / CC BY-SA 要求署名。只要展示了这些素材，就得保留署名：一句「演示素材来自 Wikimedia Commons，
+> 许可见 `demo/manifest.json`」即可覆盖；逐条署名（作者 + 许可）在 `manifest.json` 里都有。
 
 ## 3. 重新生成
 
@@ -95,6 +95,8 @@ scripts/deploy-demo.sh <owner>/<repo> --dry-run
 - 它不压缩 ⇒ 首屏比部署环境慢一点。
 
 ## 6. 演示版里能直接看到的界面形态
+
+演示目录树把每种文件类型都摆了一件，按下表走一遍就能看完全部能力：
 
 | 看什么 | 怎么走到那一步 |
 |---|---|
