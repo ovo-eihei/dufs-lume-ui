@@ -1,0 +1,172 @@
+{
+  "archives/lume-dist-sample.zip": {
+    "author": "dufs-lume-ui",
+    "bytes": 743,
+    "license": "MIT (本仓库生成)",
+    "mime": "application/zip",
+    "original": "",
+    "page": "",
+    "sha256": "d6f27b6f2c73eb857a0b94298701f7e363d48008c86561e0d508398d3a931e7c",
+    "source_title": "本地生成（demo/make-files.py）"
+  },
+  "archives/site-backup.tar.gz": {
+    "author": "dufs-lume-ui",
+    "bytes": 289,
+    "license": "MIT (本仓库生成)",
+    "mime": "application/gzip",
+    "original": "",
+    "page": "",
+    "sha256": "940c02a8d487910d70227ede4f9dee1474a46a6c46d8720b8234a6cd55918e45",
+    "source_title": "本地生成（demo/make-files.py）"
+  },
+  "audio/orchestra-1910.ogg": {
+    "author": "Victor Herbert Orchestra",
+    "bytes": 1097472,
+    "license": "CC0",
+    "mime": "application/ogg",
+    "original": "https://upload.wikimedia.org/wikipedia/commons/b/b7/Victor_Herbert_Orchestra_-_13_-_1910_-_Spanish.ogg?utm_source=commons.wikimedia.org&utm_campaign=imageinfo&utm_content=original",
+    "page": "https://commons.wikimedia.org/wiki/File:Victor_Herbert_Orchestra_-_13_-_1910_-_Spanish.ogg",
+    "sha256": "bc0491c8db542c83fedbf32fc7841d6644fb8de44b4591391f9dcc5e82b83c4c",
+    "source_title": "File:Victor Herbert Orchestra - 13 - 1910 - Spanish.ogg"
+  },
+  "audio/piano-phrase.wav": {
+    "author": "Xavier-Serra",
+    "bytes": 339244,
+    "license": "CC BY 3.0",
+    "mime": "audio/wav",
+    "original": "https://upload.wikimedia.org/wikipedia/commons/4/48/Piano-phrase.wav?utm_source=commons.wikimedia.org&utm_campaign=imageinfo&utm_content=original",
+    "page": "https://commons.wikimedia.org/wiki/File:Piano-phrase.wav",
+    "sha256": "010fafce91bf078d34190ee4d829511c7a4dea8002ababf9179238fd193d6003",
+    "source_title": "File:Piano-phrase.wav"
+  },
+  "data/access-sample.csv": {
+    "author": "dufs-lume-ui",
+    "bytes": 10851,
+    "license": "MIT (本仓库生成)",
+    "mime": "text/csv",
+    "original": "",
+    "page": "",
+    "sha256": "598f39d3e955b3a6f7b3c91198789dc44b235ffe55865cd9afe37d10e37af349",
+    "source_title": "本地生成（demo/make-files.py）"
+  },
+  "data/dufs-access.log": {
+    "author": "dufs-lume-ui",
+    "bytes": 18732,
+    "license": "MIT (本仓库生成)",
+    "mime": "text/plain",
+    "original": "",
+    "page": "",
+    "sha256": "2ea907f007f8bd6c7732d91673efb7ce923f15f0f6a1b663be806c545fab3281",
+    "source_title": "本地生成（demo/make-files.py）"
+  },
+  "data/lume-config.json": {
+    "author": "dufs-lume-ui",
+    "bytes": 340,
+    "license": "MIT (本仓库生成)",
+    "mime": "application/json",
+    "original": "",
+    "page": "",
+    "sha256": "52dc29a199de96668de70d48d5ff9c9e66a4697290674dcf168ced250ca5d33c",
+    "source_title": "本地生成（demo/make-files.py）"
+  },
+  "docs/dufs-deployment-guide.pdf": {
+    "author": "dufs-lume-ui",
+    "bytes": 1480,
+    "license": "MIT (本仓库生成)",
+    "mime": "application/pdf",
+    "original": "",
+    "page": "",
+    "sha256": "1b35c40d7fe4a26c72a4b2a2e914d3a103d637ede525b3683542eaa92910418e",
+    "source_title": "本地生成（demo/make-files.py）"
+  },
+  "photos/aurora-norway.jpg": {
+    "author": "Rafal Konieczny",
+    "bytes": 245465,
+    "license": "CC BY 2.5",
+    "mime": "image/jpeg",
+    "original": "https://upload.wikimedia.org/wikipedia/commons/b/b0/Aurora_Borealis_NO.JPG?utm_source=commons.wikimedia.org&utm_campaign=imageinfo&utm_content=original",
+    "page": "https://commons.wikimedia.org/wiki/File:Aurora_Borealis_NO.JPG",
+    "sha256": "ab532d367f8537f709bbcbfd3c3aaca58246ce5c54c18d41be72134885ff7c4f",
+    "source_title": "File:Aurora Borealis NO.JPG"
+  },
+  "photos/cat-eye.jpg": {
+    "author": "Kipcurry",
+    "bytes": 213876,
+    "license": "CC BY-SA 4.0",
+    "mime": "image/jpeg",
+    "original": "https://upload.wikimedia.org/wikipedia/commons/1/18/Blue_cat_eye_close_up.jpg?utm_source=commons.wikimedia.org&utm_campaign=imageinfo&utm_content=original",
+    "page": "https://commons.wikimedia.org/wiki/File:Blue_cat_eye_close_up.jpg",
+    "sha256": "46de9a0c750039d85c56c3ff0acf708e4315213bd6749b72b173dff21e4a6087",
+    "source_title": "File:Blue cat eye close up.jpg"
+  },
+  "photos/forest-fog.jpg": {
+    "author": "Dietmar Rabich",
+    "bytes": 172694,
+    "license": "CC BY-SA 4.0",
+    "mime": "image/jpeg",
+    "original": "https://upload.wikimedia.org/wikipedia/commons/e/e0/D%C3%BClmen%2C_Wildpark_--_2015_--_8792.jpg?utm_source=commons.wikimedia.org&utm_campaign=imageinfo&utm_content=original",
+    "page": "https://commons.wikimedia.org/wiki/File:D%C3%BClmen,_Wildpark_--_2015_--_8792.jpg",
+    "sha256": "38e5d3963923dca4ef9c170bea0dfcd0d3b4f66ac491f1bece50f59112fa719e",
+    "source_title": "File:Dülmen, Wildpark -- 2015 -- 8792.jpg"
+  },
+  "photos/macro-wing.jpg": {
+    "author": "Benjamin Balazs",
+    "bytes": 188916,
+    "license": "CC0",
+    "mime": "image/jpeg",
+    "original": "https://upload.wikimedia.org/wikipedia/commons/9/9a/Broken_Wing_%28178594907%29.jpeg?utm_source=commons.wikimedia.org&utm_campaign=imageinfo&utm_content=original",
+    "page": "https://commons.wikimedia.org/wiki/File:Broken_Wing_(178594907).jpeg",
+    "sha256": "f9f0444aad0c978f89d9a00cb7f9cd1144f4edbebb53845657a219dd86c19a7d",
+    "source_title": "File:Broken Wing (178594907).jpeg"
+  },
+  "photos/mountain-lake.jpg": {
+    "author": "",
+    "bytes": 208163,
+    "license": "Public domain",
+    "mime": "image/jpeg",
+    "original": "https://upload.wikimedia.org/wikipedia/commons/c/c4/Riffel_Lake_and_Monte_Rosa%2C_Valais%2C_Alps_of%2C_Switzerland.jpg?utm_source=commons.wikimedia.org&utm_campaign=imageinfo&utm_content=original",
+    "page": "https://commons.wikimedia.org/wiki/File:Riffel_Lake_and_Monte_Rosa,_Valais,_Alps_of,_Switzerland.jpg",
+    "sha256": "3ca780a6ae6f5dfc8cd7c2fe4aad97a59ac8bcef18e5ec43a70a8fd62543263d",
+    "source_title": "File:Riffel Lake and Monte Rosa, Valais, Alps of, Switzerland.jpg"
+  },
+  "photos/namib-dunes.jpg": {
+    "author": "Luca Galuzzi (Lucag)",
+    "bytes": 256535,
+    "license": "CC BY-SA 2.5",
+    "mime": "image/jpeg",
+    "original": "https://upload.wikimedia.org/wikipedia/commons/4/45/Sossusvlei_Dune_Namib_Desert_Namibia_Luca_Galuzzi_2004.JPG?utm_source=commons.wikimedia.org&utm_campaign=imageinfo&utm_content=original",
+    "page": "https://commons.wikimedia.org/wiki/File:Sossusvlei_Dune_Namib_Desert_Namibia_Luca_Galuzzi_2004.JPG",
+    "sha256": "258f40c2f673175cf34b732abd8e2e5d9181de0393738e62a0744855f3c755c7",
+    "source_title": "File:Sossusvlei Dune Namib Desert Namibia Luca Galuzzi 2004.JPG"
+  },
+  "photos/spiral-staircase.jpg": {
+    "author": "Martin Kopta",
+    "bytes": 278829,
+    "license": "CC BY 3.0",
+    "mime": "image/jpeg",
+    "original": "https://upload.wikimedia.org/wikipedia/commons/d/d0/Spiral_Staircase_%28227905273%29.jpeg?utm_source=commons.wikimedia.org&utm_campaign=imageinfo&utm_content=original",
+    "page": "https://commons.wikimedia.org/wiki/File:Spiral_Staircase_(227905273).jpeg",
+    "sha256": "5af65d1cb055104643bc70b659504ab28bca020480eca728f333eb44efa713ca",
+    "source_title": "File:Spiral Staircase (227905273).jpeg"
+  },
+  "photos/tokyo-night.jpg": {
+    "author": "https://www.flickr.com/people/imuttoo/",
+    "bytes": 355548,
+    "license": "CC BY-SA 2.0",
+    "mime": "image/jpeg",
+    "original": "https://upload.wikimedia.org/wikipedia/commons/c/c4/Tokyo_night_view_1_%28cropped%29.jpg?utm_source=commons.wikimedia.org&utm_campaign=imageinfo&utm_content=original",
+    "page": "https://commons.wikimedia.org/wiki/File:Tokyo_night_view_1_(cropped).jpg",
+    "sha256": "d9f4c87a6a49131cd89a6946d55f937cef66011cf02ad2f996d7c1527423f10b",
+    "source_title": "File:Tokyo night view 1 (cropped).jpg"
+  },
+  "video/traffic-light.webm": {
+    "author": "Marnanel",
+    "bytes": 1485512,
+    "license": "CC BY 4.0",
+    "mime": "video/webm",
+    "original": "https://upload.wikimedia.org/wikipedia/commons/3/31/Cyclist-controlled_traffic_light_phases.webm?utm_source=commons.wikimedia.org&utm_campaign=imageinfo&utm_content=original",
+    "page": "https://commons.wikimedia.org/wiki/File:Cyclist-controlled_traffic_light_phases.webm",
+    "sha256": "0a323d3dd85690b7c6dd0015155134baefdcb1cd09752211b31c27762e0e0ce3",
+    "source_title": "File:Cyclist-controlled traffic light phases.webm"
+  }
+}
