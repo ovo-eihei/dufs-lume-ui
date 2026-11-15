@@ -56,9 +56,15 @@ export const ImageViewer: React.FC<ImageViewerProps> = ({ src, alt }) => {
   const [attempt, setAttempt] = useState(0);
   const [isFullscreen, setIsFullscreen] = useState(false);
 
-  /** 适应窗口 = 装下整张图，但**不超过 100%**（小图不放大，避免糊） */
-  const applyFit = useCallback(() => {
-    void rzRef.current?.fitToView({ mode: 'contain', maxScale: 1, animationTime: 200 });
+  /**
+   * 适应窗口 = 装下整张图，但**不超过 100%**（小图不放大，避免糊）。
+   *
+   * `animationTime` 默认 200 ms（按钮/键盘走这条，能看到过程）；**传 0 = 当帧就位**：库在
+   * `animationTime === 0` 时直接 `setState(target)`，不起 rAF。首帧必须走 0，否则图一加载完
+   * 就从「缩放 1 倍、贴在左上」动到居中，小图看着像从左上角漂过来、大图看着像被缩一下。
+   */
+  const applyFit = useCallback((animationTime = 200) => {
+    void rzRef.current?.fitToView({ mode: 'contain', maxScale: 1, animationTime });
   }, []);
 
   /** 倍率变化：以视口中心为锚点，钳在 10%~800% 内 */
@@ -114,7 +120,8 @@ export const ImageViewer: React.FC<ImageViewerProps> = ({ src, alt }) => {
     (el: HTMLImageElement) => {
       setNatural({ w: el.naturalWidth, h: el.naturalHeight });
       setStatus('ok');
-      applyFit();
+      // 0 = 不播过程：这三句在同一个 onLoad 里，React 批处理 ⇒ **图第一次被画出来的那一帧就已经是适应居中的**
+      applyFit(0);
     },
     [applyFit]
   );
@@ -191,8 +198,9 @@ export const ImageViewer: React.FC<ImageViewerProps> = ({ src, alt }) => {
   useEffect(() => {
     const onChange = () => {
       setIsFullscreen(!!document.fullscreenElement);
-      // 视口换了尺寸：库的 resize 对齐只重钳边界、不重算适应 ⇒ 下一帧（新尺寸已生效）补一次 fit
-      requestAnimationFrame(applyFit);
+      // 视口换了尺寸：库的 resize 对齐只重钳边界、不重算适应 ⇒ 下一帧（新尺寸已生效）补一次 fit。
+      // 必须包一层：rAF 会把时间戳当第一个实参传进来，直接写 applyFit 等于 animationTime = 几十秒
+      requestAnimationFrame(() => applyFit());
     };
     document.addEventListener('fullscreenchange', onChange);
     return () => document.removeEventListener('fullscreenchange', onChange);
@@ -303,7 +311,7 @@ export const ImageViewer: React.FC<ImageViewerProps> = ({ src, alt }) => {
           </button>
           <button
             type="button"
-            onClick={applyFit}
+            onClick={() => applyFit()}
             title={t('imageViewer.fit')}
             aria-label={t('imageViewer.fit')}
             className={toolButton}
