@@ -6,3 +6,4 @@ dist-ssr
 .DS_Store
 docker/data/
 docker/.env
+dist-demo

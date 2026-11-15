@@ -1,0 +1,22 @@
+{
+  "listen": "127.0.0.1:18095",
+  "path": "/var/lib/dufs",
+  "assets": "/opt/dufs/assets",
+  "allow": {
+    "upload": true,
+    "delete": true,
+    "search": true,
+    "archive": true
+  },
+  "auth": {
+    "share": "anonymous"
+  },
+  "extensions": {
+    "info": "127.0.0.1:8090",
+    "thumbs": [
+      128,
+      256,
+      512
+    ]
+  }
+}
