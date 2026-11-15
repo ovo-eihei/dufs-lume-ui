@@ -17,6 +17,8 @@ const MAX_SCALE = 8;
 const STEP = 1.3;
 /** 滚轮一格 = ×1.15。比按钮小一档：滚轮能连续滚，跳太猛会直接滚过头 */
 const WHEEL_STEP = 1.15;
+/** 操作栏（缩放工具条）静止多久后自动隐藏。任何指针 / 键盘 / 手势活动都会把它唤回来 */
+const IDLE_MS = 3000;
 
 function clamp(value: number, min: number, max: number): number {
   return Math.min(max, Math.max(min, value));
@@ -55,6 +57,59 @@ export const ImageViewer: React.FC<ImageViewerProps> = ({ src, alt }) => {
   const [status, setStatus] = useState<'loading' | 'ok' | 'error'>('loading');
   const [attempt, setAttempt] = useState(0);
   const [isFullscreen, setIsFullscreen] = useState(false);
+  const [idle, setIdle] = useState(false);
+
+  /**
+   * 操作栏自动隐藏：静止 IDLE_MS 后淡出，鼠标一动 / 按一下键 / 手势一开始就回来。
+   *
+   * 鼠标停在栏上（`toolbarHover`）或焦点在栏里（`toolbarFocus`）时**不许隐藏**：
+   * 否则会在手底下消失，下一次点击就落到图片上了。这两种情形只「不隐藏」而不另起计时，
+   * 计时由 `pointerleave` / `blur` 那一次重新挂，避免自激。
+   */
+  const toolbarHover = useRef(false);
+  const toolbarFocus = useRef(false);
+  const idleTimer = useRef<number | null>(null);
+
+  const armIdleTimer = useCallback(() => {
+    if (idleTimer.current) window.clearTimeout(idleTimer.current);
+    idleTimer.current = window.setTimeout(() => {
+      idleTimer.current = null;
+      if (toolbarHover.current || toolbarFocus.current) return;
+      setIdle(true);
+    }, IDLE_MS);
+  }, []);
+
+  /** 活动 = 唤回操作栏并重新计时；本来就在显示时只重挂计时器，不多渲染一次 */
+  const wake = useCallback(() => {
+    setIdle((prev) => (prev ? false : prev));
+    armIdleTimer();
+  }, [armIdleTimer]);
+
+  useEffect(
+    () => () => {
+      if (idleTimer.current) window.clearTimeout(idleTimer.current);
+    },
+    []
+  );
+
+  // 换图（src 变）与重试都要让操作栏先出现一下，别让人对着「什么都没有」的图找按钮
+  useEffect(() => {
+    setIdle(false);
+    armIdleTimer();
+  }, [armIdleTimer, src, attempt]);
+
+  // 活动探测挂在图片区本身：pointermove 覆盖「栏已隐藏、动一下鼠标唤回来」，pointerdown
+  // 覆盖触摸与拖拽起点；缩放/平移的过程由 onTransform 兜，键盘在下面的 keydown 里兜。
+  useEffect(() => {
+    const el = frameRef.current;
+    if (!el || status !== 'ok') return;
+    el.addEventListener('pointermove', wake);
+    el.addEventListener('pointerdown', wake);
+    return () => {
+      el.removeEventListener('pointermove', wake);
+      el.removeEventListener('pointerdown', wake);
+    };
+  }, [status, wake, attempt, src]);
 
   /**
    * 适应窗口 = 装下整张图，但**不超过 100%**（小图不放大，避免糊）。
@@ -147,13 +202,14 @@ export const ImageViewer: React.FC<ImageViewerProps> = ({ src, alt }) => {
     if (!el || status !== 'ok') return;
     const onWheel = (e: WheelEvent) => {
       e.preventDefault(); // 图片区没有别的东西可滚 ⇒ 滚轮归缩放，不把弹窗滚走
+      wake();
       const cur = rzRef.current?.instance.state.scale ?? 1;
       const next = clamp(cur * (e.deltaY < 0 ? WHEEL_STEP : 1 / WHEEL_STEP), MIN_SCALE, MAX_SCALE);
       void rzRef.current?.zoomToPoint(next, e.clientX, e.clientY, 100);
     };
     el.addEventListener('wheel', onWheel, { passive: false }); // React 的 onWheel 是被动监听，preventDefault 会被忽略
     return () => el.removeEventListener('wheel', onWheel);
-  }, [status, attempt, src]);
+  }, [status, attempt, src, wake]);
 
   // 键盘：+/- 缩放、0 适应窗口、1 = 100%。库自带的键盘平移**没开**（keyboard.disabled 缺省 true），
   // 因为 ←/→ 在本弹窗是「上/下一个文件」（MediaPreviewModal 的 window 监听），不能抢。
@@ -162,6 +218,7 @@ export const ImageViewer: React.FC<ImageViewerProps> = ({ src, alt }) => {
       if (e.ctrlKey || e.metaKey || e.altKey) return;
       const tag = (e.target as HTMLElement | null)?.tagName;
       if (tag === 'INPUT' || tag === 'TEXTAREA' || tag === 'SELECT') return;
+      wake(); // 算活动（←/→ 翻页走不到这里也会因 src 变化而 wake，见上面的 [src] effect）
       if (e.key === '+' || e.key === '=') {
         e.preventDefault();
         stepZoom(STEP);
@@ -178,7 +235,7 @@ export const ImageViewer: React.FC<ImageViewerProps> = ({ src, alt }) => {
     };
     window.addEventListener('keydown', onKey);
     return () => window.removeEventListener('keydown', onKey);
-  }, [applyFit, stepZoom, toActualSize]);
+  }, [applyFit, stepZoom, toActualSize, wake]);
 
   // 全屏：目标是**图片区本身**（不是整个弹窗）⇒ 不用给弹窗的 max-w/h 写 :fullscreen 覆盖，
   // 顶栏的下载/翻页仍在外面；←/→ 是 window 监听，全屏里照样能翻页。
@@ -260,13 +317,14 @@ export const ImageViewer: React.FC<ImageViewerProps> = ({ src, alt }) => {
           onTransform={(_ref, state) => {
             // 每帧都回调 ⇒ 只在百分比整数位变化时才重渲染（工具条那个数字是唯一消费者）
             setScale((prev) => (Math.round(prev * 100) === Math.round(state.scale * 100) ? prev : state.scale));
+            wake(); // 捏合 / 平移的过程中不许把栏收掉
             // 手势结束 220ms 后把完全可见的图拉回中心（滚轮/捏合/平移/按钮都走这一条路径）
             if (recenterTimer.current) window.clearTimeout(recenterTimer.current);
             recenterTimer.current = window.setTimeout(recenterIfFullyVisible, 220);
           }}
         >
           <TransformComponent
-            wrapperClass="cursor-grab active:cursor-grabbing"
+            wrapperClass={`cursor-grab active:cursor-grabbing${idle ? ' cursor-none' : ''}`}
             wrapperStyle={{ width: '100%', height: '100%' }}
             wrapperProps={{ onDoubleClick: toggleFit }}
           >
@@ -284,7 +342,37 @@ export const ImageViewer: React.FC<ImageViewerProps> = ({ src, alt }) => {
       )}
 
       {status === 'ok' && (
-        <div className="absolute bottom-3 left-1/2 -translate-x-1/2 flex items-center gap-0.5 px-1 py-1 rounded-xl bg-slate-900/70 dark:bg-black/60 backdrop-blur-md border border-white/10 shadow-lg">
+        <div
+          onPointerEnter={() => {
+            toolbarHover.current = true;
+            if (idleTimer.current) {
+              window.clearTimeout(idleTimer.current);
+              idleTimer.current = null;
+            }
+          }}
+          onPointerLeave={() => {
+            toolbarHover.current = false;
+            if (!toolbarFocus.current) armIdleTimer();
+          }}
+          onFocus={() => {
+            toolbarFocus.current = true;
+            wake();
+          }}
+          onBlur={(e) => {
+            // 焦点仍在栏内（Tab 到下一个按钮）就不收；React 的 onBlur 会冒泡，要自己判 relatedTarget
+            if (!e.currentTarget.contains(e.relatedTarget as Node | null)) {
+              toolbarFocus.current = false;
+              armIdleTimer();
+            }
+          }}
+          aria-hidden={idle || undefined}
+          className={
+            'absolute bottom-3 left-1/2 -translate-x-1/2 flex items-center gap-0.5 px-1 py-1 rounded-xl ' +
+            'bg-slate-900/70 dark:bg-black/60 backdrop-blur-md border border-white/10 shadow-lg ' +
+            'transition-all duration-200 ' +
+            (idle ? 'opacity-0 translate-y-2 pointer-events-none' : 'opacity-100')
+          }
+        >
           <button
             type="button"
             onClick={() => stepZoom(1 / STEP)}
