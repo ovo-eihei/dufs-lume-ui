@@ -80,7 +80,7 @@ export function joinUrlPath(uriPrefix: string, href: string, itemName?: string, 
 /**
  * 条目的绝对 URL 路径。优先用加载时盖上的 originBase，回落到「当前页」（演示模式与本地造的条目没这字段）。
  * 为什么不直接用当前页：迷你播放器会跨目录继续播，此时 indexData.href 已经变了 ⇒
- * 复制/下载/预览的链接会串到另一个目录去（11-12 用户报的 bug）。
+ * 复制/下载/预览的链接会串到另一个目录去。
  */
 export function joinItemPath(
   uriPrefix: string,

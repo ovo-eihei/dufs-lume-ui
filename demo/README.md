@@ -1,6 +1,6 @@
-# demo/ — README 截图素材与 GitHub Pages 演示版
+# demo/ — 演示素材与 GitHub Pages 演示版
 
-这个目录放**演示用的真实文件**：README 里的截图要拍的是「一个真在用的文件服务器长什么样」，
+这个目录放**演示用的真实文件**：演示站要展示的是「一个真在用的文件服务器长什么样」，
 所以素材得是真照片、真视频、真音频、真 PDF，而不是前端生成的占位 SVG。
 
 - `media/` 实际素材（4.87 MB，17 个文件），许可逐条见下表
@@ -10,12 +10,12 @@
 
 ## 1. 为什么素材从 Commons 取
 
-Unsplash / Pexels 那类站点的许可**不允许把原图再分发进仓库**，README 里贴截图可以，把原文件提交进 git 不行。
+Unsplash / Pexels 那类站点的许可**不允许把原图再分发进仓库**，文档里引用截图可以，把原文件提交进 git 不行。
 Commons 每个文件都带机器可读的许可元数据，脚本能当场过滤（只留公有领域 / CC0 / CC-BY / CC-BY-SA / free use），
 并把来源页与作者写进 `manifest.json` ⇒ 要署名就有据可查。
 
 照片一律取 Commons 的 **1280 px 缩放版**而不是原图：原图普遍 4–12 MB，仓库和 Pages 都不该背这个体积；
-缩放版 150–360 KB，截图里也够清楚。
+缩放版 150–360 KB，界面上也够清楚。
 
 ## 2. 素材清单与许可
 
@@ -39,8 +39,8 @@ Commons 每个文件都带机器可读的许可元数据，脚本能当场过滤
 | `data/dufs-access.log` | 18,732 | MIT（本仓库生成） | — | `make-files.py` |
 | `data/lume-config.json` | 340 | MIT（本仓库生成） | — | `make-files.py` |
 
-> CC BY / CC BY-SA 要求署名。README 里如果放了这些截图，末尾加一句「演示素材来自 Wikimedia Commons，许可见 `demo/manifest.json`」即可覆盖；
-> 逐条署名（作者 + 许可）在 `manifest.json` 里都有。
+> CC BY / CC BY-SA 要求署名。只要展示了这些素材，就得保留署名：一句「演示素材来自 Wikimedia Commons，
+> 许可见 `demo/manifest.json`」即可覆盖；逐条署名（作者 + 许可）在 `manifest.json` 里都有。
 
 ## 3. 重新生成
 
@@ -52,7 +52,7 @@ python3 demo/make-files.py       # 本地那批
 ```
 
 ⚠ Commons 会限流：连打三次 API 就回 429（实测）。脚本里 `API_SLEEP = 2.5` 就是为这个，
-别改成并发。落地文件名以 `manifest.json` 的 key 为准。
+别改成并发。文件名以 `manifest.json` 的 key 为准。
 
 ## 4. 演示版怎么接这些素材
 
@@ -80,7 +80,7 @@ scripts/deploy-demo.sh <owner>/<repo> --dry-run
 
 三条硬要求：
 
-1. **产物在 `dist-demo/`，不是 `dist/`**。线上发布是 `rsync -a --delete dist/ <你的 --assets 目录>/`，
+1. **产物在 `dist-demo/`，不是 `dist/`**。`dist/` 是要同步到 dufs `--assets` 目录的那一份，
    素材混进 `dist/` 就等于把几 MB 照片推到生产资源目录。
 2. **目标仓库必须 public**。免费版 Pages 不会渲染 private 仓库，`deploy-demo.sh` 会先查可见性、
    private 直接拒绝。源仓库本身 public 之后可以直接推它自己的 `gh-pages`
@@ -92,11 +92,13 @@ scripts/deploy-demo.sh <owner>/<repo> --dry-run
 
 本地预览的两个已知限制（都是 `python3 -m http.server` 的锅，Pages 上没这问题）：
 - 它不响应 `Range` 请求 ⇒ 视频拖进度条可能不动；
-- 它不压缩 ⇒ 首屏比线上慢一点。
+- 它不压缩 ⇒ 首屏比部署环境慢一点。
 
-## 6. README 截图建议拍这几张
+## 6. 演示版里能直接看到的界面形态
 
-| 拍什么 | 怎么走到那一步 |
+演示目录树把每种文件类型都摆了一件，按下表走一遍就能看完全部能力：
+
+| 看什么 | 怎么走到那一步 |
 |---|---|
 | 根目录（列表视图） | 打开演示首页即是 |
 | 网格视图 + 真缩略图 | 进 `photos/`，顶栏切到网格 |
