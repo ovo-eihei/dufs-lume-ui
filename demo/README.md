@@ -80,11 +80,11 @@ scripts/deploy-demo.sh <owner>/<repo> --dry-run
 
 三条硬要求：
 
-1. **产物在 `dist-demo/`，不是 `dist/`**。生产环境发布是 `rsync -a --delete dist/ /srv/dufs/assets/`，
+1. **产物在 `dist-demo/`，不是 `dist/`**。`dist/` 是要同步到 dufs `--assets` 目录的那一份，
    素材混进 `dist/` 就等于把几 MB 照片推到生产资源目录。
 2. **目标仓库必须 public**。免费版 Pages 不会渲染 private 仓库，`deploy-demo.sh` 会先查可见性、
-   private 直接拒绝。源仓库 `ovo-eihei/dufs-lume-ui` 是 private ⇒ 演示站要放**另一个公开仓库**
-   （例如 `ovo-eihei/lume-demo`），源码仍然留在私有仓库。
+   private 直接拒绝。源仓库本身 public 之后可以直接推它自己的 `gh-pages`
+   （`scripts/deploy-demo.sh ovo-eihei/dufs-lume-ui`）；也可以另建一个只放演示站的公开仓库。
 3. Pages 的源要指到 `gh-pages` 分支根目录（脚本末尾会打印两种开法）。
 
 与生产构建的差别只有三处：`__ASSETS_PREFIX__` → `./`（顺带让运行时 `assetUrl()` 也走相对路径，

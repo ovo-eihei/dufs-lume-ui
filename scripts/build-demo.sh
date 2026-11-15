@@ -1,7 +1,7 @@
 #!/usr/bin/env bash
 # 构建 GitHub Pages 用的演示版，输出到 dist-demo/（**不碰 dist/**）。
 #
-# 为什么要单独一个目录：生产环境发布走的是 `rsync -a --delete dist/ /srv/dufs/assets/`，
+# 为什么要单独一个目录：`dist/` 是要同步到 dufs `--assets` 目录的那一份，
 # 素材一旦混进 dist/，下次发版就把几 MB 照片推到生产资源目录里去了。
 #
 # 与生产构建的三处差别：
