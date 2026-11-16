@@ -34,6 +34,8 @@
 | `w` | 期望宽度，脚本收敛到 `THUMB_WIDTHS` 档位表里最近的一档 |
 | `root` | `share` ⇒ 硬拦在 `DUFS_ANON_PREFIX`（默认 `/share/`）子树内；缺省 = 不额外限制 |
 
+服务端要装哪一种图像工具（libvips / ImageMagick / 不装）、各自的实测代价与安装命令，见 [`image-toolchain.md`](./image-toolchain.md)。
+
 **脚本自己做的安全约束**（全部实测通过，见 §6）：
 
 1. `path` 必须是绝对路径；

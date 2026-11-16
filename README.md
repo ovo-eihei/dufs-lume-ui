@@ -53,6 +53,7 @@ dufs-lume-ui/
 │   └── lume-info-api.sh              # POSIX sh 扩展接口脚本（服务 /__lume__/info 与 /__lume__/thumb）
 ├── docs/
 │   ├── deployment-and-lume-api.md    # 进阶部署、扩展 API 响应规范、安全约束与运维清单
+│   ├── image-toolchain.md            # 图像工具链选型与安装（libvips / ImageMagick / 不装）
 │   ├── ai-development-notes.md       # AI 开发说明与安全边界（中文）
 │   └── ai-development-notes.en.md    # 同上，英文版
 └── src/
@@ -142,7 +143,8 @@ docker compose up -d --build
    }
    ```
 
-> 📖 **进阶部署文档**：关于扩展 API 响应规范、缩略图安全边界、systemd 单元写法与运维注意事项，请参阅 **[`docs/deployment-and-lume-api.md`](./docs/deployment-and-lume-api.md)**。
+> 📖 **进阶部署文档**：关于扩展 API 响应规范、缩略图安全边界、systemd 单元写法与运维注意事项，请参阅 **[`docs/deployment-and-lume-api.md`](./docs/deployment-and-lume-api.md)**；
+> 缩略图那一步要装什么图像工具（libvips 还是 ImageMagick，各自代价与安装命令），见 **[`docs/image-toolchain.md`](./docs/image-toolchain.md)**。
 
 ## 📄 开源协议
 
