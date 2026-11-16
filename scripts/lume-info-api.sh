@@ -74,8 +74,6 @@ serve_info() {
   # du -sk 每请求跑一次（实测数据根 0.002 s / 2 万文件 0.054 s）⇒ 默认输出，不做开关。
   KB=$(du -sk "$ROOT" 2>/dev/null | cut -f1)             # busybox du 没有 -b ⇒ 用 -sk 再乘 1024
   DATA=$(( ${KB:-0} * 1024 ))
-  # 不输出 path / generated_at：数据根绝对路径与生成时间戳对前端都没有用处（path 只喂过磁盘小部件的
-  # 悬浮提示，generated_at 从来没被渲染过），而前者还会把宿主机/容器的文件系统布局告诉浏览器。
   BODY=$(printf '{"free_bytes":%s,"data_bytes":%s,"thumbs":%s}' "$FREE" "$DATA" "$CAP")
   respond 200 OK application/json '' "$BODY"
 }
