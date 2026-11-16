@@ -38,12 +38,11 @@ trap 'rm -rf "$TMP"' EXIT
 
 say "初始化 $TMP（gh-pages 孤儿分支）"
 [ "$DRY" = "--dry-run" ] || {
-  git -C "$TMP" init -q
+  cp -r dist-demo/. "$TMP"/
+  rm -rf "$TMP/.git"          # 万一 dist-demo 里混进了 .git，先清掉再 init
+  git -C "$TMP" init -q -b gh-pages
   git -C "$TMP" config user.name ovo-agentx
   git -C "$TMP" config user.email 351813579+ovo-agentx@users.noreply.github.com
-  cp -r dist-demo/. "$TMP"/
-  rm -rf "$TMP/.git"
-  git -C "$TMP" checkout -q -b gh-pages
   git -C "$TMP" add -A
   git -C "$TMP" commit -q -m "演示版 $(date -u +%Y-%m-%dT%H:%MZ)（$(git rev-parse --short HEAD) 的产物）"
 }
@@ -57,7 +56,9 @@ fi
 git -C "$TMP" push -q --force "https://x-access-token:$(gh auth token)@github.com/$REPO.git" gh-pages:gh-pages
 
 owner="${REPO%/*}"; name="${REPO#*/}"
-html=$(gh api "repos/$REPO/pages" --jq '.html_url' 2>/dev/null || true)
+# ⚠ gh api 报错时也会往 stdout 写 JSON 错误体，所以只判“非空”会把 404 当成站点地址
+html=$(gh api "repos/$REPO/pages" --jq '.html_url // empty' 2>/dev/null || true)
+case "$html" in http*) ;; *) html="" ;; esac
 if [ -n "$html" ]; then
   echo "✓ 已推 gh-pages（$(git -C "$TMP" rev-parse --short HEAD)），站点：$html"
 else
