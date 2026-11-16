@@ -1,0 +1,35 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+  <head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <link rel="icon" type="image/svg+xml" href="./favicon.svg?v=ca449252" />
+    <title>Lume</title>
+    <script>
+      // Dufs runtime injection placeholders:
+      window.__DUFS_RAW_INDEX_DATA__ = "__INDEX_DATA__";
+      window.__DUFS_ASSETS_PREFIX__ = "./";
+      // 品牌可选项：docker 部署由 entrypoint-ui.sh 把占位符换成 JSON；
+      // 非 docker（rsync dist/）会留下字面量 ⇒ 前端 resolveBrandConfig() 视为未配置。
+      // ⚠ 占位符必须在**单引号**里：注入的是含双引号的 JSON，放进双引号会提前结束
+      //    JS 字符串、整个 script 块语法错误（连上面两个注入占位符一起失效）。
+      window.__LUME_BRAND__ = '__LUME_BRAND_JSON__';
+
+      // Prevent Flash of Unstyled Content (FOUC) on initial load:
+      (function () {
+        try {
+          var savedTheme = localStorage.getItem('dufs_lume_theme') || 'system';
+          var sysDark = window.matchMedia && window.matchMedia('(prefers-color-scheme: dark)').matches;
+          var isDark = savedTheme === 'dark' || (savedTheme === 'system' && sysDark);
+          if (isDark) document.documentElement.classList.add('dark');
+          else document.documentElement.classList.remove('dark');
+        } catch (e) {}
+      })();
+    </script>
+    <script type="module" crossorigin src="./lume-app.e5AuCV6q.js"></script>
+    <link rel="stylesheet" crossorigin href="./lume-style.W2w0t2Ex.css">
+  </head>
+  <body class="bg-slate-50 text-slate-900 dark:bg-slate-950 dark:text-slate-100 antialiased selection:bg-indigo-500 selection:text-white">
+    <div id="root"></div>
+  </body>
+</html>
