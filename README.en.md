@@ -1,6 +1,6 @@
 # ✨ dufs-lume-ui
 
-[简体中文](./README.md) · [English](./README.en.md)
+[简体中文](./README.md) · [English](./README.en.md) · [Live demo](https://ovo-eihei.github.io/dufs-lume-ui/)
 
 > ⚠️ **This project is AI-developed.** The code and documentation were written primarily by an AI assistant, with a human providing requirements, making decisions and accepting results. **It has not been through a rigorous security audit, nor a systematic code review.** Treat it as a working, readable reference implementation rather than a verified product. Details: [AI development notes & security boundaries](./docs/ai-development-notes.en.md).
 
@@ -79,6 +79,9 @@ pnpm run dev
 # 3. production build (output in ./dist)
 pnpm run build
 ```
+
+> No dependencies to install? Open the **[live demo](https://ovo-eihei.github.io/dufs-lume-ui/)** instead:
+> the same build output, hosted on GitHub Pages, driven by the built-in demo file tree (no backend).
 
 ## 🐳 Docker Compose quick start
 

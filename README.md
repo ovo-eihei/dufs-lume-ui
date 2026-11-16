@@ -1,6 +1,6 @@
 # ✨ dufs-lume-ui
 
-[简体中文](./README.md) · [English](./README.en.md)
+[简体中文](./README.md) · [English](./README.en.md) · [在线演示](https://ovo-eihei.github.io/dufs-lume-ui/)
 
 > ⚠️ **这是一个 AI 开发的项目。** 代码与文档主要由 AI 助手编写，人类负责提需求、做决策与验收；**没有经过严格的安全审计，也没有系统性的代码审查**。请把它当作一份可运行、可参考的实现，而不是经过验证的成品。详细说明见 [AI 开发说明与安全边界](./docs/ai-development-notes.md)。
 
@@ -80,6 +80,9 @@ pnpm run dev
 # 3. 构建生产环境静态资源（输出至 ./dist 目录）
 pnpm run build
 ```
+
+> 不想装依赖可以直接打开 **[在线演示](https://ovo-eihei.github.io/dufs-lume-ui/)**：
+> 同一份构建产物跑在 GitHub Pages 上，数据是内置的演示目录树（没有后端）。
 
 ## 🐳 Docker Compose 快速部署
 
