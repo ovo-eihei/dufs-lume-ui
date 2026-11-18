@@ -10,7 +10,7 @@ ARG DUFS_VERSION=v0.47.0
 
 # node 跟 LTS（24）而不是 Current（25）：Node 25 的发行版**不再自带 corepack**
 # （实测 node:25-alpine 里 `corepack: not found`，而下面靠 `corepack enable` 取 pnpm ⇒ 直接 127）。
-FROM node:24-alpine AS build
+FROM node:26-alpine AS build
 WORKDIR /src
 COPY package.json pnpm-lock.yaml ./
 # --ignore-scripts：pnpm 10+ 对未批准的 postinstall 直接退 1（esbuild@0.21.5）。
